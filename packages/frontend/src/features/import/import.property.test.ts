@@ -114,13 +114,24 @@ const REQUIRED_FIELDS = [
   'productType',
   'quantity',
   'pieceWeight',
-  'length',
-  'width',
-  'height',
-  'handlingMethod',
-  'stackPermission',
-  'orientationRequirement',
 ] as const;
+
+// ─── Product types where dimension fields are optional ───────────────────────
+
+const LENGTH_OPTIONAL_TYPES = new Set(['palletized', 'wire_rod_coil', 'fabricated_assembly']);
+const WIDTH_OPTIONAL_TYPES = new Set(['pipe', 'round_bar', 'rebar_bundle', 'wire_rod_coil', 'palletized', 'channel', 'fabricated_assembly']);
+const HEIGHT_OPTIONAL_TYPES = new Set(['palletized', 'wire_rod_coil']);
+
+/**
+ * Returns the dimension fields that are required for a given product type.
+ */
+function requiredDimensionFields(productType: string): readonly string[] {
+  const fields: string[] = [];
+  if (!LENGTH_OPTIONAL_TYPES.has(productType)) fields.push('length');
+  if (!WIDTH_OPTIONAL_TYPES.has(productType)) fields.push('width');
+  if (!HEIGHT_OPTIONAL_TYPES.has(productType)) fields.push('height');
+  return fields;
+}
 
 // ─── Property 3: Import field round-trip preservation ────────────────────────
 // For any valid SteelOrderLineItem, serializing it to CSV format and parsing it
@@ -235,9 +246,16 @@ describe('Feature: flatbed-load-planner, Property 4: Import validation error ide
     fc.assert(
       fc.property(
         arbitraryValidSteelOrderLineItem(),
-        fc.constantFrom(...REQUIRED_FIELDS),
         fc.integer({ min: 2, max: 100 }), // row index (1-based, starting at 2 for data rows)
-        (validItem, fieldToRemove, rowIndex) => {
+        (validItem, rowIndex) => {
+          // Determine which fields are actually required for this product type
+          const allRequired = [
+            ...REQUIRED_FIELDS,
+            ...requiredDimensionFields(validItem.productType),
+          ];
+          // Pick a random required field to remove (deterministic from the item)
+          const fieldToRemove = allRequired[rowIndex % allRequired.length];
+
           // Build a valid mapped row, then remove/empty one required field
           const row: Record<string, unknown> = {
             orderNumber: validItem.orderNumber,
@@ -366,7 +384,7 @@ describe('Feature: flatbed-load-planner, Property 4: Import validation error ide
     // Fields that require positive integers
     const integerFields = ['deliveryStop', 'quantity'] as const;
     // Fields that require positive numbers (integer or float)
-    const positiveNumberFields = ['pieceWeight', 'length', 'width', 'height'] as const;
+    const alwaysRequiredPositiveFields = ['pieceWeight'] as const;
 
     // Values invalid for ALL numeric fields (non-numeric, empty, negative, zero)
     const universallyInvalidValues = fc.constantFrom('abc', '', '-5', '0');
@@ -378,9 +396,9 @@ describe('Feature: flatbed-load-planner, Property 4: Import validation error ide
       fc.property(
         arbitraryValidSteelOrderLineItem(),
         fc.oneof(
-          // Case 1: universally invalid value on any numeric field
+          // Case 1: universally invalid value on always-required numeric fields
           fc.tuple(
-            fc.constantFrom(...integerFields, ...positiveNumberFields),
+            fc.constantFrom(...integerFields, ...alwaysRequiredPositiveFields),
             universallyInvalidValues,
           ),
           // Case 2: non-integer value on integer-requiring fields

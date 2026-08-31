@@ -243,6 +243,7 @@ function canStackAt(
   item: SteelOrderLineItem,
   _x: number, _y: number, _length: number, _width: number, itemHeight: number,
   overlapping: DeckSlot[],
+  allSlots: DeckSlot[],
   maxTrailerHeight: number
 ): { z: number; layer: number; supportMethod: SupportMethod } | null {
   if (overlapping.length === 0) {
@@ -266,8 +267,14 @@ function canStackAt(
 
   for (const below of overlapping) {
     // Sum weight of all items above this specific item (higher layer AND overlapping with it)
-    const weightAboveThis = overlapping
-      .filter(s => s.layer > below.layer)
+    // Use allSlots to find ALL items above 'below', not just those overlapping with the new item
+    const weightAboveThis = allSlots
+      .filter(s => s.layer > below.layer && !(
+        s.x >= below.x + below.length ||
+        s.x + s.length <= below.x ||
+        s.y >= below.y + below.width ||
+        s.y + s.width <= below.y
+      ))
       .reduce((sum, s) => sum + s.item.pieceWeight * s.item.quantity, 0);
 
     // Check if adding the new item would exceed this item's maxStackWeight
@@ -395,7 +402,7 @@ function placeItems(
           };
         } else {
           // Try stacking
-          placement = canStackAt(item, x, y, effectiveLength, effectiveWidth, itemHeight, overlapping, maxStackableHeight);
+          placement = canStackAt(item, x, y, effectiveLength, effectiveWidth, itemHeight, overlapping, occupiedSlots, maxStackableHeight);
         }
 
         if (!placement) continue;

@@ -13,7 +13,7 @@ describe('autoMapFleetColumns', () => {
   it('maps exact English column names', () => {
     const sourceColumns = [
       'vehicle id', 'vehicle type', 'license plate',
-      'weight capacity', 'platform length', 'platform width', 'condition code',
+      'weight capacity', 'platform length', 'platform width', 'condition code', 'status',
     ];
     const mappings = autoMapFleetColumns(sourceColumns);
 
@@ -61,7 +61,7 @@ describe('autoMapFleetColumns', () => {
   it('maps snake_case column names', () => {
     const sourceColumns = [
       'vehicle_id', 'vehicle_type', 'license_plate',
-      'weight_capacity', 'platform_length', 'platform_width', 'condition_code',
+      'weight_capacity', 'platform_length', 'platform_width', 'condition_code', 'status',
     ];
     const mappings = autoMapFleetColumns(sourceColumns);
 
@@ -96,7 +96,11 @@ describe('autoMapFleetColumns', () => {
   it('marks all fields as required', () => {
     const mappings = autoMapFleetColumns([]);
     for (const m of mappings) {
-      expect(m.required).toBe(true);
+      if (m.targetField === 'status') {
+        expect(m.required).toBe(false);
+      } else {
+        expect(m.required).toBe(true);
+      }
     }
   });
 
@@ -118,7 +122,7 @@ describe('autoMapFleetColumns', () => {
   it('handles mixed-case headers gracefully', () => {
     const sourceColumns = [
       'VEHICLE ID', 'Vehicle Type', 'LICENSE PLATE',
-      'Weight Capacity', 'PLATFORM LENGTH', 'Platform Width', 'Condition Code',
+      'Weight Capacity', 'PLATFORM LENGTH', 'Platform Width', 'Condition Code', 'status',
     ];
     const mappings = autoMapFleetColumns(sourceColumns);
 
@@ -207,7 +211,7 @@ describe('autoMapFleetColumns', () => {
     it('maps hyphenated headers (e.g., "vehicle-id")', () => {
       const sourceColumns = [
         'vehicle-id', 'vehicle-type', 'license-plate',
-        'weight-capacity', 'platform-length', 'platform-width', 'condition-code',
+        'weight-capacity', 'platform-length', 'platform-width', 'condition-code', 'status',
       ];
       const mappings = autoMapFleetColumns(sourceColumns);
 

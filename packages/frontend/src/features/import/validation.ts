@@ -376,12 +376,12 @@ export function validateRow(
   }
 
   const quantity = parseNumber(row['quantity']);
-  if (quantity === null || quantity <= 0) {
+  if (quantity === null || quantity <= 0 || !Number.isInteger(quantity)) {
     errors.push({
       row: rowIndex,
       field: 'quantity',
       value: row['quantity'],
-      message: `Row ${rowIndex}: Quantity must be a positive number`,
+      message: `Row ${rowIndex}: Quantity must be a positive integer`,
     });
   }
 

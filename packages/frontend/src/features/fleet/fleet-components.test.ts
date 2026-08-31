@@ -288,7 +288,7 @@ describe('Fleet Smart Mapper — naming conventions', () => {
     it('maps snake_case column names', () => {
       const cols = [
         'vehicle_id', 'vehicle_type', 'license_plate',
-        'weight_capacity', 'platform_length', 'platform_width', 'condition_code',
+        'weight_capacity', 'platform_length', 'platform_width', 'condition_code', 'status',
       ];
       const mappings = autoMapFleetColumns(cols);
 

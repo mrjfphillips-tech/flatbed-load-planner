@@ -19,7 +19,7 @@ vi.mock('../db/index', () => ({
     insert: vi.fn().mockReturnValue({
       values: vi.fn().mockResolvedValue(undefined),
     }),
-    execute: vi.fn().mockResolvedValue({ rows: [] }),
+    execute: vi.fn().mockResolvedValue([]),
   },
   schema: {
     coverageSnapshots: {},

@@ -84,7 +84,16 @@ export class TranscriptionEngine {
     this._sessionId = sessionId
 
     // Step 1: Load Whisper.cpp WASM
-    await this._loadWasm()
+    try {
+      await this._loadWasm()
+    } catch (err) {
+      const error = (err && typeof err === 'object' && 'kind' in err) ? err : {
+        kind: 'wasm_load_failed' as const,
+        message: err instanceof Error ? err.message : 'Failed to load WASM module',
+      }
+      this.onError?.(error as any)
+      throw error
+    }
 
     // Step 2: Request microphone
     await this._requestMicrophone()
