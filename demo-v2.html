@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PTV Discovery Coach</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--surface2:#334155;--border:#475569;--text:#f1f5f9;--text2:#94a3b8;--text3:#64748b;--accent:#3b82f6;--accent2:#2563eb;--green:#22c55e;--green-bg:rgba(34,197,94,.12);--yellow:#eab308;--yellow-bg:rgba(234,179,8,.12);--red:#ef4444;--red-bg:rgba(239,68,68,.12);--glass:rgba(30,41,59,.7);--radius:12px;--radius-sm:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+button{cursor:pointer;font-family:inherit;font-size:13px;transition:all .15s ease}
+input,select,textarea{font-family:inherit;font-size:13px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+.app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid rgba(71,85,105,.3);padding:20px 0;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:10}
+.sidebar-logo{display:flex;align-items:center;gap:0;padding:0 12px;margin-bottom:24px}
+.logo-icon{width:196px;height:48px;background:#000;border-radius:12px;overflow:hidden;position:relative;flex-shrink:0;box-shadow:0 2px 12px rgba(230,51,18,.2)}
+.logo-icon canvas{display:block;width:100%;height:100%}
+.logo-text{display:none}
+.nav-items{flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:var(--text2);cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{color:var(--text);background:rgba(59,130,246,.06)}
+.nav-item.active{color:var(--accent);background:rgba(59,130,246,.1);border-left-color:var(--accent);font-weight:500}
+.nav-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);padding:16px 20px 6px}
+.nav-back{display:flex;align-items:center;gap:8px;padding:10px 20px;font-size:12px;color:var(--text3);cursor:pointer;border-bottom:1px solid rgba(71,85,105,.3);margin-bottom:8px}
+.nav-back:hover{color:var(--accent)}
+.nav-acct-name{padding:4px 20px 12px;font-size:14px;font-weight:600;color:var(--text);border-bottom:1px solid rgba(71,85,105,.3);margin-bottom:8px}
+.nav-user{padding:16px 20px;border-top:1px solid rgba(71,85,105,.3);display:flex;align-items:center;gap:10px}
+.nav-avatar{width:32px;height:32px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600}
+.main{margin-left:220px;flex:1;padding:24px 32px;max-width:900px}
+.page-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text3);margin-bottom:20px}
+.card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid rgba(71,85,105,.4);border-radius:var(--radius);padding:16px;margin-bottom:14px;transition:border-color .15s}
+.card:hover{border-color:rgba(59,130,246,.3)}
+.card-title{font-size:13px;font-weight:600;color:var(--text)}
+.btn{padding:8px 16px;border-radius:var(--radius-sm);border:none;font-weight:500;font-size:13px}
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.3)}
+.btn-primary:hover{box-shadow:0 4px 16px rgba(59,130,246,.4);transform:translateY(-1px)}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-green{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-full{width:100%}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.15);color:#60a5fa}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-yellow{background:var(--yellow-bg);color:var(--yellow)}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-purple{background:rgba(139,92,246,.15);color:#a78bfa}
+.search-box{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px 10px 36px;font-size:13px;color:var(--text);margin-bottom:16px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:12px center}
+.acct-card{background:var(--glass);border:1px solid rgba(71,85,105,.4);border-radius:var(--radius);padding:16px;margin-bottom:10px;cursor:pointer;transition:all .2s}
+.acct-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 20px rgba(59,130,246,.15)}
+.acct-name{font-size:15px;font-weight:600;color:var(--text)}
+.acct-meta{font-size:12px;color:var(--text3);margin-top:4px}
+.acct-health{display:flex;gap:6px;margin-top:10px}
+.health-dot{width:8px;height:8px;border-radius:50%}
+.meter{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.meter-label{width:140px;font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meter-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.meter-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.meter-val{width:28px;text-align:right;font-size:12px;font-weight:500}
+.q-card{background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(139,92,246,.06));border:1px solid rgba(59,130,246,.2);border-radius:var(--radius);padding:16px}
+.q-badge{font-size:11px;font-weight:600;color:#60a5fa;background:rgba(59,130,246,.15);padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:8px}
+.q-text{font-size:15px;color:var(--text);line-height:1.6;margin-bottom:12px}
+.q-note{background:rgba(59,130,246,.08);border-left:3px solid var(--accent);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#93c5fd;line-height:1.5}
+.q-note-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#60a5fa;margin-bottom:3px}
+.q-controls{display:flex;gap:8px}
+.q-controls button{flex:1;padding:8px;border-radius:var(--radius-sm);font-size:12px;font-weight:500}
+.qis{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.qis-label{font-size:11px;color:var(--text3);white-space:nowrap}
+.qis-track{flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.qis-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.qis-val{font-size:12px;font-weight:600;width:28px;text-align:right}
+.rec-bar{display:flex;align-items:center;gap:10px;background:var(--red-bg);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px}
+.rec-dot{width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}50%{box-shadow:0 0 20px 2px rgba(59,130,246,.15)}}
+.rec-label{font-size:12px;color:#fca5a5;font-weight:500;flex:1}
+.star-btn{background:none;border:none;font-size:22px;color:var(--text3);padding:0;line-height:1}
+.star-btn.starred{color:var(--yellow)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:10px 20px;border-radius:var(--radius);z-index:100;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.seg-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg-btn{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;cursor:pointer;transition:all .15s}
+.seg-btn:hover{border-color:var(--accent);background:rgba(59,130,246,.06)}
+.alt-btn{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;text-align:left;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;width:100%;margin-top:6px}
+.alt-btn:hover{border-color:var(--accent);color:var(--text)}
+.summary-textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:12px;color:var(--text);resize:none;height:160px;line-height:1.6}
+.export-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.roi-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0}
+.roi-summary{background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(139,92,246,.08));border:1px solid rgba(59,130,246,.2);border-radius:var(--radius);padding:16px;margin-top:12px;text-align:center}
+.score-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.score-chip{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:500}
+.chip-ok{background:var(--surface2);color:var(--text2)}
+.chip-gap{background:var(--red-bg);color:var(--red)}
+.contact-group{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:16px 0 8px}
+.contact-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid rgba(71,85,105,.3);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:6px}
+.leexi-call{display:flex;align-items:center;padding:12px 14px;gap:12px;border-bottom:1px solid rgba(71,85,105,.2)}
+.leexi-call:last-child{border-bottom:none}
+.view{display:none}.view.active{display:block}
+.gap-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.session-card{background:var(--glass);border:1px solid rgba(71,85,105,.4);border-radius:var(--radius);overflow:hidden;margin-bottom:10px;padding:12px 16px}
+.q-group-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:14px 0 8px}
+.q-item{background:var(--surface);border:1px solid rgba(71,85,105,.3);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px}
+.discreet-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0;padding:16px}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar" id="sidebar"></div>
+<div class="main" id="main-content"></div>
+</div>
+<script>
+var ACCOUNTS=[
+{id:'acme',name:'Acme Logistics GmbH',industry:'ManufacturingDistribution',sessions:3,lastCall:'Apr 4, 2026',health:{Goals:85,Metrics:72,EconomicBuyer:38,Champion:42,IdentifyPain:81,DecisionProcess:51},contacts:[
+  {name:'Sarah Müller',title:'Director of Logistics Operations',email:'s.muller@acme.de',tier:'Senior Leader',dealRole:'Champion',tierAuto:true},
+  {name:'Klaus Weber',title:'Fleet & Dispatch Manager',email:'k.weber@acme.de',tier:'Line Manager',dealRole:'End User',tierAuto:true},
+  {name:'Thomas Bauer',title:'Systems Architect — TMS/WMS',email:'t.bauer@acme.de',tier:'Technical',dealRole:'Technical Buyer',tierAuto:true}
+]},
+{id:'metro',name:'Metro Inc.',industry:'FoodBeverageFMCG',sessions:2,lastCall:'Mar 28, 2026',health:{Goals:65,Metrics:55,EconomicBuyer:20,Champion:30,IdentifyPain:70,DecisionProcess:40},contacts:[
+  {name:'Jean-Pierre Dubois',title:'VP Supply Chain',email:'jp.dubois@metro.ca',tier:'C-suite',dealRole:'Economic Buyer',tierAuto:true},
+  {name:'Ray Fontaine',title:'Transportation Manager',email:'r.fontaine@metro.ca',tier:'Line Manager',dealRole:'Champion',tierAuto:true}
+]},
+{id:'hdsupply',name:'HD Supply',industry:'BuildingSupply',sessions:1,lastCall:'Mar 15, 2026',health:{Goals:45,Metrics:30,EconomicBuyer:0,Champion:15,IdentifyPain:50,DecisionProcess:10},contacts:[
+  {name:'Ashleigh Torres',title:'Sr. Operations Analyst',email:'a.torres@hdsupply.com',tier:'Operational',dealRole:'Champion',tierAuto:true}
+]},
+{id:'buildright',name:'BuildRight Supply Co.',industry:'BuildingSupply',sessions:0,lastCall:'New',health:{Goals:0,Metrics:0,EconomicBuyer:0,Champion:0,IdentifyPain:0,DecisionProcess:0},contacts:[]},
+{id:'freshfoods',name:'FreshFoods GmbH',industry:'FoodBeverageFMCG',sessions:1,lastCall:'Apr 1, 2026',health:{Goals:60,Metrics:45,EconomicBuyer:25,Champion:35,IdentifyPain:55,DecisionProcess:30},contacts:[
+  {name:'Anna Schmidt',title:'Head of Distribution',email:'a.schmidt@freshfoods.de',tier:'Senior Leader',dealRole:'Champion',tierAuto:true},
+  {name:'Markus Braun',title:'IT Integration Lead',email:'m.braun@freshfoods.de',tier:'Technical',dealRole:'Technical Buyer',tierAuto:true}
+]}
+];
+var MEDDIC=[{key:'Metrics',score:72},{key:'EconomicBuyer',score:38},{key:'DecisionCriteria',score:65},{key:'DecisionProcess',score:51},{key:'IdentifyPain',score:81},{key:'Champion',score:42},{key:'People',score:70},{key:'Organization',score:68},{key:'Goals',score:85},{key:'Plans',score:55},{key:'Obstacles',score:44},{key:'PlansToOvercomeObstacles',score:30}];
+var QUESTIONS=[{element:'Goals',text:'What does success look like for your logistics operation 12 months from now?'},{element:'IdentifyPain',text:'What is the biggest pain point in your current routing process?'},{element:'Metrics',text:'How are you currently measuring delivery efficiency?'},{element:'EconomicBuyer',text:'Who ultimately owns the decision to invest in a solution like this?'},{element:'Champion',text:'Who would be the strongest internal advocate?'},{element:'DecisionProcess',text:'Where are you in your evaluation process?'},{element:'Obstacles',text:'What has prevented you from solving this sooner?'},{element:'DecisionCriteria',text:'What criteria does your leadership use when evaluating technology?'}];
+var NOTES={Goals:"Goals anchors the entire conversation. Listen for specific metrics, timelines, or strategic language.",IdentifyPain:"Pain is the foundation of value selling. Push for specifics.",Metrics:"You cannot sell improvement without a baseline. Get the number.",EconomicBuyer:"Without the economic buyer, deals stall.",Champion:"A champion keeps the deal alive when you're not in the room.",DecisionProcess:"Understanding where they are tells you timing and competition.",Obstacles:"Prior attempts reveal what hasn't worked.",DecisionCriteria:"Understanding criteria tells you what to prove."};
+var SEGMENTS=[{id:'ThirdPartyLogistics',label:'3PL',icon:'🏭'},{id:'BuildingSupply',label:'Building Supply',icon:'🏗️'},{id:'ManufacturingDistribution',label:'Mfg & Distribution',icon:'⚙️'},{id:'RetailEcommerce',label:'Retail',icon:'🛒'},{id:'FoodBeverageFMCG',label:'Food & Bev',icon:'🥤'},{id:'HealthcarePharma',label:'Healthcare',icon:'💊'},{id:'FieldServices',label:'Field Services',icon:'🔧'},{id:'Other',label:'Other',icon:'📦'}];
+var currentAcct=null,currentView='accounts',currentQ=0,sessionActive=false,timerInterval=null,seconds=0,starred=false,confirmedFields={},roiUnit='mi',roiSavPct=10;
+var viewHistory=[];
+function navigateTo(view,acct){
+  // Push current state to history before changing
+  viewHistory.push({view:currentView,acct:currentAcct?currentAcct.id:null});
+  if(acct!==undefined) currentAcct=acct;
+  currentView=view;
+  render();
+}
+function goBack(){
+  if(viewHistory.length===0) return;
+  var prev=viewHistory.pop();
+  if(prev.acct){currentAcct=ACCOUNTS.find(function(a){return a.id===prev.acct})||null;}
+  else{currentAcct=null;}
+  currentView=prev.view;
+  render();
+}
+function backButtonHtml(){
+  if(!currentAcct) return '';
+  return '<button onclick="currentAcct=null;currentView=\'accounts\';viewHistory=[];render()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid rgba(71,85,105,.4);border-radius:8px;padding:5px 12px;font-size:12px;color:var(--text2);cursor:pointer;margin-bottom:14px;transition:all .15s" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--text)\'" onmouseout="this.style.borderColor=\'rgba(71,85,105,.4)\';this.style.color=\'var(--text2)\'">← Back to Account History</button>';
+}
+
+function renderSidebar(){
+  var sb=document.getElementById('sidebar');
+  if(!currentAcct){
+    sb.innerHTML='<div class="sidebar-logo"><div class="logo-icon"><canvas id="logo-canvas" width="84" height="84"></canvas></div><div class="logo-text"><span style="color:#e63312;font-weight:800">PTV</span> Discovery<br>Coach</div></div><div class="nav-items"><div class="nav-item active"><span>📋</span>Accounts</div><div class="nav-section">Tools</div><div class="nav-item" onclick="navigateTo(\'admin\',null)"><span>⚙️</span>Admin</div></div><div class="nav-user"><div class="nav-avatar">JP</div><div><div style="font-size:13px;font-weight:500;color:var(--text)">J. Phillips</div><div style="font-size:11px;color:var(--text3)">Sales Rep</div></div></div>';
+  } else {
+    var a=currentAcct;
+    sb.innerHTML='<div class="sidebar-logo"><div class="logo-icon"><canvas id="logo-canvas" width="84" height="84"></canvas></div><div class="logo-text"><span style="color:#e63312;font-weight:800">PTV</span> Discovery<br>Coach</div></div><div class="nav-back" onclick="navigateTo(\'accounts\',null)">← All Accounts</div><div class="nav-acct-name">'+a.name+'</div><div class="nav-items"><div class="nav-item'+(currentView==='overview'?' active':'')+'" onclick="navigateTo(\'overview\')"><span>📁</span>Overview</div><div class="nav-item'+(currentView==='session'?' active':'')+'" onclick="navigateTo(\'session\')"><span>🎙</span>Live Session</div><div class="nav-item'+(currentView==='roi'?' active':'')+'" onclick="navigateTo(\'roi\')"><span>📊</span>ROI Calculator</div><div class="nav-item'+(currentView==='leexi'?' active':'')+'" onclick="navigateTo(\'leexi\')"><span>🔗</span>Leexi Import</div><div class="nav-item'+(currentView==='contacts'?' active':'')+'" onclick="navigateTo(\'contacts\')"><span>👥</span>Contacts</div><div class="nav-section">Tools</div><div class="nav-item'+(currentView==='admin'?' active':'')+'" onclick="navigateTo(\'admin\')"><span>⚙️</span>Admin</div></div><div class="nav-user"><div class="nav-avatar">JP</div><div><div style="font-size:13px;font-weight:500;color:var(--text)">J. Phillips</div><div style="font-size:11px;color:var(--text3)">Sales Rep</div></div></div>';
+  }
+  startLogoAnimation();
+}
+
+function render(){
+  renderSidebar();
+  var m=document.getElementById('main-content');
+  m.scrollTop=0;
+  if(!currentAcct&&currentView==='accounts') m.innerHTML=renderAccountsHome();
+  else if(!currentAcct&&currentView==='admin') m.innerHTML=renderAdmin();
+  else if(currentView==='overview') m.innerHTML=renderOverview();
+  else if(currentView==='session'){ m.innerHTML=renderSession();
+    // Auto-start session if coming from "Create & Start Session"
+    if(window._autoStartSeg!==undefined){
+      var seg=window._autoStartSeg;
+      delete window._autoStartSeg;
+      setTimeout(function(){ beginSession(seg); },50);
+    }
+  }
+  else if(currentView==='roi') m.innerHTML=renderROI();
+  else if(currentView==='leexi') m.innerHTML=renderLeexi();
+  else if(currentView==='contacts') m.innerHTML=renderContacts();
+  else if(currentView==='admin') m.innerHTML=renderAdmin();
+  else m.innerHTML=renderAccountsHome();
+}
+
+function renderAccountsHome(){
+  var h='<div class="page-title">Accounts</div><div class="page-sub">Select an account to start coaching or review discovery progress</div>';
+  h+='<div style="display:flex;gap:10px;margin-bottom:20px"><input class="search-box" placeholder="Search accounts..." oninput="filterAccounts(this.value)" style="flex:1;margin-bottom:0"><button class="btn btn-primary" onclick="showNewAccountForm()">+ New Account</button></div>';
+  h+='<div id="new-acct-form" style="display:none"></div>';
+  h+='<div id="acct-list">';
+  for(var i=0;i<ACCOUNTS.length;i++){var a=ACCOUNTS[i];h+=renderAccountCard(a);}
+  h+='</div>';
+  return h;
+}
+
+function renderAccountCard(a){
+  var keys=Object.keys(a.health);var avg=0;for(var i=0;i<keys.length;i++)avg+=a.health[keys[i]];avg=Math.round(avg/keys.length);
+  var healthColor=avg>=60?'var(--green)':avg>=30?'var(--yellow)':'var(--red)';
+  var dots='';for(var j=0;j<keys.length;j++){var s=a.health[keys[j]];var c=s>=60?'var(--green)':s>=30?'var(--yellow)':'var(--surface2)';dots+='<div class="health-dot" style="background:'+c+'" title="'+keys[j]+': '+s+'%"></div>';}
+  var seg=SEGMENTS.find(function(s){return s.id===a.industry});var segLabel=seg?seg.icon+' '+seg.label:'';
+  return '<div class="acct-card" onclick="selectAccount(\''+a.id+'\')"><div style="display:flex;align-items:center;justify-content:space-between"><div class="acct-name">'+a.name+'</div><div style="display:flex;align-items:center;gap:8px"><span class="badge badge-blue">'+segLabel+'</span><div style="width:40px;height:40px;border-radius:50%;border:3px solid '+healthColor+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+healthColor+'">'+avg+'</div></div></div><div class="acct-meta">'+a.sessions+' sessions · Last call: '+a.lastCall+' · '+(a.contacts.length||0)+' contacts</div><div class="acct-health">'+dots+'</div></div>';
+}
+
+function selectAccount(id){
+  var acct=ACCOUNTS.find(function(a){return a.id===id});
+  navigateTo('overview',acct);
+}
+
+function filterAccounts(q){
+  var list=document.getElementById('acct-list');if(!list)return;
+  var filtered=ACCOUNTS.filter(function(a){return a.name.toLowerCase().indexOf(q.toLowerCase())>=0;});
+  list.innerHTML=filtered.map(renderAccountCard).join('');
+}
+
+function showNewAccountForm(){
+  var f=document.getElementById('new-acct-form');if(!f)return;
+  f.style.display='block';
+  f.innerHTML='<div class="card" style="border-color:var(--accent)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="card-title" style="font-size:15px">Quick Account Capture</div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'new-acct-form\').style.display=\'none\'">✕ Close</button></div><div style="font-size:12px;color:var(--text3);margin-bottom:14px">Fastest path: scan a business card to auto-fill, pick the industry, and start recording.</div><div style="display:flex;gap:8px;margin-bottom:16px;padding:12px;background:rgba(59,130,246,.06);border:1px dashed rgba(59,130,246,.3);border-radius:var(--radius-sm);justify-content:center"><button class="btn btn-primary btn-sm" onclick="simulateCardScan()">📷 Scan Business Card</button><button class="btn btn-ghost btn-sm" onclick="simulateCardScan()">📁 Upload Card Image</button></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"><div><label style="font-size:11px;color:var(--text3)">Company Name *</label><input id="new-company" placeholder="e.g. Acme Logistics" style="width:100%"></div><div><label style="font-size:11px;color:var(--text3)">Contact Name</label><input id="new-contact" placeholder="e.g. Sarah Müller" style="width:100%"></div><div><label style="font-size:11px;color:var(--text3)">Email</label><input id="new-email" placeholder="s.muller@acme.de" style="width:100%"></div><div><label style="font-size:11px;color:var(--text3)">Phone</label><input id="new-phone" placeholder="+49 89 1234 5678" style="width:100%"></div><div><label style="font-size:11px;color:var(--text3)">Title / Role</label><input id="new-title" placeholder="e.g. VP Logistics" style="width:100%"></div><div><label style="font-size:11px;color:var(--text3)">Fleet Size (approx)</label><input id="new-fleet" type="number" placeholder="e.g. 150" style="width:100%"></div></div><div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text3)">Industry Segment *</label><div class="seg-grid" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr 1fr">'+SEGMENTS.map(function(s){return '<button class="seg-btn" style="padding:8px;font-size:11px" onclick="selectNewSeg(this,\''+s.id+'\')"><span>'+s.icon+'</span><span style="font-size:10px;color:var(--text2)">'+s.label+'</span></button>';}).join('')+'</div></div><div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text3)">Quick Note</label><input id="new-note" placeholder="e.g. Met at ProMat 2026, interested in route optimization" style="width:100%"></div><div id="role-detection" style="display:none"></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" onclick="createAndStartSession()" style="flex:1">Create & Start Session 🎙</button><button class="btn btn-ghost" onclick="createAccountOnly()" style="flex:1">Save for Later</button></div></div>';
+}
+
+var newAcctSeg=null;
+function selectNewSeg(btn,seg){newAcctSeg=seg;var btns=btn.parentElement.querySelectorAll('.seg-btn');for(var i=0;i<btns.length;i++){btns[i].style.borderColor='var(--border)';btns[i].style.background='var(--surface)';}btn.style.borderColor='var(--accent)';btn.style.background='rgba(59,130,246,.1)';}
+
+function simulateCardScan(){
+  // Create Matrix-style scanning overlay
+  var scanOverlay = document.createElement('div');
+  scanOverlay.id = 'scan-overlay';
+  scanOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:16px';
+
+  // Card container with canvas
+  var cardEl = document.createElement('div');
+  cardEl.style.cssText = 'position:relative;width:340px;height:200px;background:#000;border-radius:14px;overflow:hidden;border:1px solid rgba(0,255,65,.3);box-shadow:0 0 40px rgba(0,255,65,.15),0 8px 32px rgba(0,0,0,.5)';
+
+  var canvas = document.createElement('canvas');
+  canvas.width = 340; canvas.height = 200;
+  canvas.style.cssText = 'display:block;width:100%;height:100%';
+  cardEl.appendChild(canvas);
+
+  // Status text below card
+  var statusEl = document.createElement('div');
+  statusEl.style.cssText = 'display:flex;align-items:center;gap:8px';
+  statusEl.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:#00ff41;animation:mxPulse 1s infinite"></div><span id="scan-status-text" style="font-size:13px;color:#00ff41;font-family:Consolas,monospace;font-weight:500">SCANNING...</span>';
+
+  scanOverlay.appendChild(cardEl);
+  scanOverlay.appendChild(statusEl);
+
+  // Add styles
+  if(!document.getElementById('scan-anim-styles')){
+    var style = document.createElement('style');
+    style.id = 'scan-anim-styles';
+    style.textContent = '@keyframes mxPulse{0%,100%{opacity:1}50%{opacity:.3}}';
+    document.head.appendChild(style);
+  }
+
+  document.body.appendChild(scanOverlay);
+
+  // Matrix rain on canvas
+  var ctx = canvas.getContext('2d');
+  var cols = Math.floor(canvas.width / 12);
+  var drops = [];
+  for(var i=0;i<cols;i++) drops[i] = Math.random() * -20;
+  var chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF';
+  var matrixInterval = setInterval(function(){
+    ctx.fillStyle = 'rgba(0,0,0,.06)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.font = '11px Consolas,monospace';
+    for(var i=0;i<drops.length;i++){
+      var ch = chars[Math.floor(Math.random()*chars.length)];
+      var brightness = Math.random();
+      if(brightness > .7) ctx.fillStyle = '#00ff41';
+      else if(brightness > .4) ctx.fillStyle = 'rgba(0,255,65,.6)';
+      else ctx.fillStyle = 'rgba(0,255,65,.25)';
+      ctx.fillText(ch, i*12, drops[i]*12);
+      if(drops[i]*12 > canvas.height && Math.random() > .975) drops[i] = 0;
+      drops[i] += .5 + Math.random()*.5;
+    }
+  }, 40);
+
+  // Phase 2: show extracted text appearing over the matrix
+  setTimeout(function(){
+    var st = document.getElementById('scan-status-text');
+    if(st) st.textContent = 'EXTRACTING TEXT...';
+    // Draw card text emerging from the matrix
+    var lines = ['Müller Kühllogistik GmbH','Dr. Katharina Engel','Geschäftsführerin Logistik','k.engel@mueller-kuehllogistik.de','+49 40 8832 4710'];
+    var lineIdx = 0;
+    var textInterval = setInterval(function(){
+      if(lineIdx >= lines.length){ clearInterval(textInterval); return; }
+      ctx.fillStyle = 'rgba(0,0,0,.4)';
+      ctx.fillRect(16, 30 + lineIdx*28, 310, 22);
+      ctx.font = lineIdx===0 ? 'bold 13px Segoe UI,sans-serif' : '12px Segoe UI,sans-serif';
+      ctx.fillStyle = lineIdx===0 ? '#00ff41' : 'rgba(0,255,65,.85)';
+      ctx.fillText(lines[lineIdx], 20, 46 + lineIdx*28);
+      lineIdx++;
+    }, 300);
+  }, 1600);
+
+  // Phase 3: fill the form fields
+  setTimeout(function(){
+    var ci=document.getElementById('new-company');if(ci)ci.value='Müller Kühllogistik GmbH';
+    var cn=document.getElementById('new-contact');if(cn)cn.value='Dr. Katharina Engel';
+    var ce=document.getElementById('new-email');if(ce)ce.value='k.engel@mueller-kuehllogistik.de';
+    var cp=document.getElementById('new-phone');if(cp)cp.value='+49 40 8832 4710';
+    var ct=document.getElementById('new-title');if(ct)ct.value='Geschäftsführerin Logistik (COO Logistics)';
+
+    // Flash success
+    var st = document.getElementById('scan-status-text');
+    if(st){ st.textContent = '✓ SCAN SUCCESSFUL'; st.style.textShadow = '0 0 10px #00ff41'; }
+    var dot = statusEl.querySelector('div');
+    if(dot){ dot.style.animation = 'none'; dot.style.boxShadow = '0 0 8px #00ff41'; }
+    cardEl.style.borderColor = 'rgba(0,255,65,.6)';
+    cardEl.style.boxShadow = '0 0 60px rgba(0,255,65,.25),0 8px 32px rgba(0,0,0,.5)';
+  }, 3200);
+
+  // Phase 4: close and show role detection
+  setTimeout(function(){
+    clearInterval(matrixInterval);
+    if(scanOverlay.parentNode) scanOverlay.parentNode.removeChild(scanOverlay);
+
+    var rolePanel=document.getElementById('role-detection');
+    if(rolePanel){
+      rolePanel.style.display='block';
+      rolePanel.innerHTML='<div style="background:linear-gradient(135deg,rgba(139,92,246,.1),rgba(59,130,246,.06));border:1px solid rgba(139,92,246,.2);border-radius:var(--radius-sm);padding:12px;margin-top:12px">'+
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a78bfa;margin-bottom:8px">🎯 Auto-detected from title: Geschäftsführerin Logistik (COO)</div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:8px">'+
+      '<div style="flex:1;background:var(--surface);border:1px solid rgba(139,92,246,.3);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Persona Tier</div><select id="detected-tier" onchange="updateRoleRecommendation()" style="width:100%;font-size:11px;padding:4px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text)"><option>C-suite</option><option>Senior Leader</option><option>Line Manager</option><option>Operational</option><option>Technical</option></select></div>'+
+      '<div style="flex:1;background:var(--surface);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">MEDDIC Deal Role</div><select id="detected-role" onchange="updateRoleRecommendation()" style="width:100%;font-size:11px;padding:4px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text)"><option>Economic Buyer</option><option>Champion</option><option>Technical Buyer</option><option>End User</option><option>Decision Influencer</option></select></div>'+
+      '</div>'+
+      '<div id="role-rec-display" style="display:flex;gap:8px"></div>'+
+      '<div style="font-size:10px;color:var(--text3);margin-top:8px;text-align:center">Auto-detected from title. Change if needed — titles don\'t always reflect authority.</div>'+
+      '</div>';
+      updateRoleRecommendation();
+    }
+    showToast('✓ Scan Successful — fields populated');
+  }, 4000);
+}
+
+function createAndStartSession(){
+  var name=(document.getElementById('new-company')||{}).value||'New Account';
+  var newAcct={id:'new-'+Date.now(),name:name,industry:newAcctSeg||'Other',sessions:0,lastCall:'Today',health:{Goals:0,Metrics:0,EconomicBuyer:0,Champion:0,IdentifyPain:0,DecisionProcess:0},contacts:1};
+  ACCOUNTS.unshift(newAcct);
+  showToast('✓ Account created — starting session');
+  // Flag to auto-start session (skip redundant segment picker)
+  window._autoStartSeg = newAcctSeg || null;
+  navigateTo('session',newAcct);
+}
+
+function createAccountOnly(){
+  var name=(document.getElementById('new-company')||{}).value||'New Account';
+  var newAcct={id:'new-'+Date.now(),name:name,industry:newAcctSeg||'Other',sessions:0,lastCall:'Today',health:{Goals:0,Metrics:0,EconomicBuyer:0,Champion:0,IdentifyPain:0,DecisionProcess:0},contacts:1};
+  ACCOUNTS.unshift(newAcct);
+  document.getElementById('new-acct-form').style.display='none';
+  showToast('✓ Account saved — '+name);
+  render();
+}
+
+function renderOverview(){
+  var a=currentAcct;
+  var h=backButtonHtml()+'<div class="page-title">'+a.name+'</div><div class="page-sub">Account overview and discovery health</div>';
+  h+='<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap"><button class="btn btn-primary" onclick="currentView=\'session\';render()">🎙 Start Session</button><button class="btn btn-ghost" onclick="currentView=\'roi\';render()">📊 ROI Calculator</button></div>';
+
+  // Leexi Integration Card
+  h+='<div class="card" style="background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(59,130,246,.06));border-color:rgba(99,102,241,.25);margin-bottom:16px">';
+  h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="font-size:20px">🔗</span><div><div style="font-size:14px;font-weight:600;color:var(--text)">Leexi Audio Sync</div><div style="font-size:11px;color:var(--text3)">Pull transcripts from Leexi or push session recordings for AI processing</div></div></div>';
+  h+='<div style="display:flex;gap:10px">';
+  h+='<button onclick="showLeexiPull()" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;font-size:13px;font-weight:500" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 16px rgba(99,102,241,.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'"><span style="font-size:22px">⬇️</span><span style="text-align:left"><strong>Pull from Leexi</strong><br><span style="font-size:11px;opacity:.8">Import call transcripts &amp; summaries</span></span></button>';
+  h+='<button onclick="showLeexiPush()" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;font-size:13px;font-weight:500" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 16px rgba(16,185,129,.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'"><span style="font-size:22px">⬆️</span><span style="text-align:left"><strong>Push to Leexi</strong><br><span style="font-size:11px;opacity:.8">Send session audio for transcription</span></span></button>';
+  h+='</div>';
+  h+='<div id="leexi-panel" style="margin-top:12px"></div>';
+  h+='</div>';
+
+  // Deal Map — MEDDIC Role Coverage
+  var dealRoles=[
+    {role:'Economic Buyer',icon:'💰',required:true,min:1,color:'var(--red)'},
+    {role:'Champion',icon:'⭐',required:true,min:1,color:'var(--yellow)'},
+    {role:'Technical Buyer',icon:'🔧',required:true,min:1,color:'var(--accent)'},
+    {role:'End User',icon:'👤',required:false,min:0,color:'var(--text3)'},
+    {role:'Decision Influencer',icon:'🎯',required:false,min:0,color:'var(--text3)'}
+  ];
+  var contacts=a.contacts||[];
+  h+='<div class="card"><div class="card-title" style="margin-bottom:12px">🗺️ Deal Map — Stakeholder Coverage</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">';
+  for(var dr=0;dr<dealRoles.length;dr++){
+    var role=dealRoles[dr];
+    var mapped=contacts.filter(function(c){return c.dealRole===role.role;});
+    var filled=mapped.length>0;
+    var isCrit=role.required&&!filled;
+    var bgColor=isCrit?'var(--red-bg)':filled?'var(--green-bg)':'var(--surface)';
+    var borderColor=isCrit?'rgba(239,68,68,.3)':filled?'rgba(34,197,94,.3)':'var(--border)';
+    h+='<div style="background:'+bgColor+';border:1px solid '+borderColor+';border-radius:var(--radius-sm);padding:10px;text-align:center">';
+    h+='<div style="font-size:18px;margin-bottom:4px">'+role.icon+'</div>';
+    h+='<div style="font-size:11px;font-weight:600;color:'+(isCrit?'var(--red)':filled?'var(--green)':'var(--text3)')+'">'+role.role+'</div>';
+    if(filled){for(var mp=0;mp<mapped.length;mp++){h+='<div style="font-size:10px;color:var(--text2);margin-top:3px">'+mapped[mp].name+'</div>';}}
+    else if(role.required){h+='<div style="font-size:10px;color:var(--red);margin-top:3px">⚠ Not identified</div>';}
+    else{h+='<div style="font-size:10px;color:var(--text3);margin-top:3px">—</div>';}
+    h+='</div>';
+  }
+  h+='</div>';
+  // Multi-threading check
+  var hasEB=contacts.some(function(c){return c.dealRole==='Economic Buyer';});
+  var hasChamp=contacts.some(function(c){return c.dealRole==='Champion';});
+  var hasTech=contacts.some(function(c){return c.dealRole==='Technical Buyer';});
+  var threadScore=(hasEB?1:0)+(hasChamp?1:0)+(hasTech?1:0);
+  var threadColor=threadScore===3?'var(--green)':threadScore>=2?'var(--yellow)':'var(--red)';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border-radius:var(--radius-sm)">';
+  h+='<div style="font-size:12px;color:var(--text2)">Multi-threading: <span style="color:'+threadColor+';font-weight:600">'+threadScore+'/3 key roles filled</span></div>';
+  if(threadScore<3){h+='<div style="font-size:11px;color:var(--red)">⚠ '+(hasEB?'':'No EB · ')+(hasChamp?'':'No Champion · ')+(hasTech?'':'No Tech Buyer')+'</div>';}
+  else{h+='<div style="font-size:11px;color:var(--green)">✓ All key roles covered</div>';}
+  h+='</div></div>';
+
+  // Activity Timeline
+  h+='<div class="card"><div class="card-title" style="margin-bottom:12px">📅 Activity Timeline</div>';
+  h+='<div style="position:relative;padding-left:20px;border-left:2px solid var(--surface2)">';
+  var timeline=[
+    {date:'Apr 8',type:'next',label:'Follow-up call scheduled',detail:'Technical review with IT team',icon:'📞',color:'var(--accent)'},
+    {date:'Apr 4',type:'past',label:'Discovery call completed',detail:'+35 MEDDIC points · Summary exported to Salesforce',icon:'✅',color:'var(--green)'},
+    {date:'Apr 2',type:'past',label:'Leexi import processed',detail:'22m call · 47 segments analyzed',icon:'🔗',color:'var(--accent)'},
+    {date:'Mar 28',type:'past',label:'Account created',detail:'Met at ProMat 2026 · Building Supply segment',icon:'🆕',color:'var(--text3)'},
+  ];
+  for(var t=0;t<timeline.length;t++){var ev=timeline[t];var isFuture=ev.type==='next';h+='<div style="position:relative;margin-bottom:16px"><div style="position:absolute;left:-27px;top:2px;width:12px;height:12px;border-radius:50%;background:'+(isFuture?'var(--accent)':'var(--surface2)')+';border:2px solid '+(isFuture?'var(--accent)':'var(--border)')+'"></div><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:13px;font-weight:500;color:'+(isFuture?'var(--accent)':'var(--text)')+'">'+ev.icon+' '+ev.label+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px">'+ev.detail+'</div></div><div style="font-size:11px;color:var(--text3);white-space:nowrap;margin-left:12px">'+ev.date+'</div></div></div>';}
+  h+='</div>';
+  h+='<div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="showScheduleForm()">+ Schedule Follow-up</button><button class="btn btn-ghost btn-sm" onclick="alert(\'Add note to timeline\')">+ Add Note</button></div>';
+  h+='<div id="schedule-form" style="display:none;margin-top:12px"></div>';
+  h+='</div>';
+  h+='<div class="card"><div class="card-title" style="margin-bottom:10px">MEDDIC Health</div>';
+  var keys=Object.keys(a.health);
+  for(var i=0;i<keys.length;i++){var k=keys[i],v=a.health[k];var color=v>=60?'var(--green)':v>=30?'var(--yellow)':'var(--surface2)';var label=k.replace(/([A-Z])/g,' $1').trim();h+='<div class="meter"><span class="meter-label">'+label+'</span><div class="meter-track"><div class="meter-fill" style="width:'+v+'%;background:'+color+'"></div></div><span class="meter-val" style="color:'+(v>=60?'var(--green)':v>=30?'var(--yellow)':'var(--text3)')+'">'+v+'</span></div>';}
+  h+='</div>';
+  var gaps=keys.filter(function(k){return a.health[k]<60;});
+  if(gaps.length>0){h+='<div class="card"><div class="card-title" style="margin-bottom:8px">Gap Recommendations</div>';for(var j=0;j<gaps.length;j++){var g=gaps[j];var isCrit=g==='EconomicBuyer'||g==='Champion';h+='<div style="font-size:12px;color:var(--text2);margin-bottom:6px">'+(isCrit?'⚠ ':'')+'<span style="color:'+(isCrit?'var(--red)':'var(--yellow)')+';font-weight:500">'+g.replace(/([A-Z])/g,' $1').trim()+'</span> ('+a.health[g]+'%) — needs attention on next call</div>';}h+='</div>';}
+  h+='<div class="card"><div class="card-title" style="margin-bottom:8px">Recent Sessions</div>';
+  if(a.sessions===0){h+='<div style="font-size:12px;color:var(--text3);padding:12px 0">No sessions yet. Start one to begin discovery.</div>';}
+  else{
+    // Session 1 — most recent
+    h+='<div class="session-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:13px;font-weight:500;color:var(--text)">'+a.lastCall+'</span><span style="font-size:12px;color:var(--text3)">42m 18s</span></div>';
+    h+='<div class="score-chips">';
+    var deltas1={Goals:12,Metrics:8,EconomicBuyer:0,Champion:0,IdentifyPain:15,DecisionProcess:5,Obstacles:-3,DecisionCriteria:3};
+    var chipKeys=Object.keys(a.health);
+    for(var c=0;c<chipKeys.length;c++){
+      var ck=chipKeys[c],cv=a.health[ck];
+      var d=deltas1[ck]||0;
+      var dStr=d>0?'<span style="color:var(--green);font-size:10px;font-weight:600;margin-left:3px">+'+d+'</span>':d<0?'<span style="color:var(--red);font-size:10px;font-weight:600;margin-left:3px">'+d+'</span>':'';
+      h+='<span class="score-chip '+(cv<60?'chip-gap':'chip-ok')+'">'+ck.substring(0,2)+':'+cv+dStr+'</span>';
+    }
+    h+='</div></div>';
+    // Session 2 — older
+    h+='<div class="session-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:13px;font-weight:500;color:var(--text)">Mar 28</span><span style="font-size:12px;color:var(--text3)">28m 45s · Initial discovery</span></div>';
+    h+='<div class="score-chips">';
+    var deltas2={Goals:5,Metrics:4,EconomicBuyer:0,Champion:0,IdentifyPain:8,DecisionProcess:0,Obstacles:0,DecisionCriteria:2};
+    for(var c2=0;c2<chipKeys.length;c2++){
+      var ck2=chipKeys[c2];
+      var prevVal=Math.max(0,a.health[ck2]-(deltas1[ck2]||0));
+      var d2=deltas2[ck2]||0;
+      var dStr2=d2>0?'<span style="color:var(--green);font-size:10px;font-weight:600;margin-left:3px">+'+d2+'</span>':d2<0?'<span style="color:var(--red);font-size:10px;font-weight:600;margin-left:3px">'+d2+'</span>':'';
+      h+='<span class="score-chip '+(prevVal<60?'chip-gap':'chip-ok')+'">'+ck2.substring(0,2)+':'+prevVal+dStr2+'</span>';
+    }
+    h+='</div></div>';
+  }
+  h+='</div>';
+  return h;
+}
+</script>
+<script>
+function renderSession(){
+  var h=backButtonHtml()+'<div class="page-title">Live Session</div><div class="page-sub">'+currentAcct.name+'</div>';
+  h+='<div id="s-controls"><button class="btn btn-primary btn-full" onclick="showSegSelector()" style="padding:14px;font-size:14px">▶ Start Session</button></div>';
+  h+='<div id="s-seg" style="display:none"></div>';
+  h+='<div id="s-coaching" style="display:none"></div>';
+  h+='<div id="s-summary" style="display:none"></div>';
+  return h;
+}
+function showSegSelector(){
+  document.getElementById('s-controls').style.display='none';
+  var d=document.getElementById('s-seg');d.style.display='block';
+  d.innerHTML='<div class="card"><div class="card-title" style="margin-bottom:4px">What industry is this customer in?</div><div style="font-size:12px;color:var(--text3);margin-bottom:14px">Tailors questions and terminology.</div><div class="seg-grid">'+SEGMENTS.map(function(s){return '<button class="seg-btn" onclick="beginSession(\''+s.id+'\')"><span style="font-size:20px">'+s.icon+'</span><span style="font-size:12px;font-weight:500;color:var(--text)">'+s.label+'</span></button>';}).join('')+'</div><button class="btn btn-ghost btn-full btn-sm" style="margin-top:10px" onclick="beginSession(null)">Skip</button></div>';
+}
+function beginSession(seg){
+  sessionActive=true;seconds=0;currentQ=0;
+  // Snapshot MEDDIC scores at session start for delta calculation
+  window._sessionStartScores={};
+  for(var i=0;i<MEDDIC.length;i++){window._sessionStartScores[MEDDIC[i].key]=MEDDIC[i].score;}
+  document.getElementById('s-seg').style.display='none';
+  var cp=document.getElementById('s-coaching');cp.style.display='block';
+  if(seg){var s=SEGMENTS.find(function(x){return x.id===seg});if(s)showToast('Industry: '+s.label);}
+  // Check if GDPR consent is needed (EU region)
+  showGDPRConsent(function(){
+    showSessionOpener();
+  });
+}
+
+function showGDPRConsent(onAccept){
+  // Hide the Start Session button — user must go through GDPR first
+  var sc=document.getElementById('s-controls');
+  if(sc) sc.style.display='none';
+
+  var cp=document.getElementById('s-coaching');
+  cp.style.display='block';
+  cp.innerHTML='<div style="position:relative"><div style="background:linear-gradient(135deg,rgba(234,179,8,.08),rgba(239,68,68,.06));border:1px solid rgba(234,179,8,.3);border-radius:var(--radius);padding:20px;text-align:center">'+
+  '<div style="font-size:28px;margin-bottom:8px">⚖️</div>'+
+  '<div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px">Recording Consent Required</div>'+
+  '<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:16px;max-width:400px;margin-left:auto;margin-right:auto">Under <strong style="color:var(--yellow)">GDPR (EU)</strong> and similar regulations, all parties must be informed and consent to being recorded before a session can begin.<br><br>Please confirm that you have notified all participants on this call that the conversation will be recorded and transcribed.</div>'+
+  '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px;text-align:left;max-width:400px;margin-left:auto;margin-right:auto">'+
+  '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px">Suggested script:</div>'+
+  '<div style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic">"Before we get started, I want to let you know that I\'ll be taking notes during our conversation using an AI assistant. It will record and transcribe our discussion to help me capture everything accurately. Is that OK with you?"</div>'+
+  '</div>'+
+  '<div style="display:flex;gap:10px;justify-content:center;margin-bottom:12px">'+
+  '<button id="gdpr-accept-btn" class="btn" onclick="acceptGDPR()" style="padding:10px 28px;background:#ef4444;color:#fff;border:none;transition:all .3s">✓ All parties have been notified and agree to recording</button>'+
+  '</div>'+
+  '<div style="display:flex;gap:10px;justify-content:center;margin-bottom:12px">'+
+  '<button id="gdpr-decline-btn" class="btn" onclick="declineGDPR()" style="padding:10px 20px;background:#ef4444;color:#fff;border:none;transition:all .3s">✕ Not yet — remind me</button>'+
+  '</div>'+
+  '<div style="font-size:10px;color:var(--text3)">This consent is logged for compliance. Region: EU (GDPR) · <a href="#" style="color:var(--accent)" onclick="event.preventDefault();toggleRegionSetting()">Change region</a></div>'+
+  '</div></div>';
+  window._gdprCallback=onAccept;
+}
+
+function acceptGDPR(){
+  var btn=document.getElementById('gdpr-accept-btn');
+  if(btn){
+    btn.style.background='#22c55e';
+    btn.textContent='✓ Consent confirmed — starting session...';
+    btn.onclick=null;
+    // Also grey out the decline button
+    var dec=document.getElementById('gdpr-decline-btn');
+    if(dec){dec.style.opacity='.3';dec.style.pointerEvents='none';}
+  }
+  showToast('✓ Recording consent confirmed');
+  setTimeout(function(){
+    if(window._gdprCallback)window._gdprCallback();
+  },800);
+}
+
+function declineGDPR(){
+  var btn=document.getElementById('gdpr-decline-btn');
+  if(btn){
+    btn.style.background='#22c55e';
+    btn.textContent='✓ Reminder set — session paused';
+    btn.onclick=null;
+    var acc=document.getElementById('gdpr-accept-btn');
+    if(acc){acc.style.opacity='.3';acc.style.pointerEvents='none';}
+  }
+  setTimeout(function(){
+    var cp=document.getElementById('s-coaching');
+    cp.innerHTML='<div class="card" style="text-align:center;padding:24px;border-color:var(--yellow)">'+
+    '<div style="font-size:20px;margin-bottom:8px">⏸️</div>'+
+    '<div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:8px">Session paused — consent needed</div>'+
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6">Please notify all participants that the conversation will be recorded, then come back and confirm.</div>'+
+    '<div style="display:flex;gap:10px;justify-content:center">'+
+    '<button id="gdpr-accept-btn" class="btn" onclick="acceptGDPR()" style="padding:10px 28px;background:#ef4444;color:#fff;transition:all .3s">✓ Done — all parties notified</button>'+
+    '<button class="btn btn-ghost" onclick="skipRecording()">Continue without recording</button>'+
+    '</div></div>';
+  },600);
+}
+
+function skipRecording(){
+  showToast('Session started without recording — notes only mode');
+  if(window._gdprCallback)window._gdprCallback();
+}
+
+function toggleRegionSetting(){
+  showToast('Region settings would open here — EU, US, APAC, etc.');
+}
+
+function showSessionOpener(){
+  var cp=document.getElementById('s-coaching');
+  cp.innerHTML='<div class="rec-bar"><div class="rec-dot"></div><span class="rec-label" id="timer-label">Recording — 0:00</span><button class="btn btn-danger btn-sm" onclick="endSess()">End</button></div>'+
+  '<div style="text-align:center;padding:8px 0 16px"><span class="badge badge-purple" style="font-size:12px;padding:5px 14px">Session Opener</span></div>'+
+  '<div class="q-card" style="margin-bottom:14px;border-color:rgba(139,92,246,.3);background:linear-gradient(135deg,rgba(139,92,246,.1),rgba(59,130,246,.06))">'+
+
+  // Main opener
+  '<div class="q-text" style="font-size:17px;text-align:center;margin-bottom:6px;font-weight:500">"Where in your operation do you feel like you\'re doing a lot of work — but not getting the results you should?"</div>'+
+  '<div style="text-align:center;margin-bottom:16px"><span style="font-size:11px;color:var(--text3)">Best for: operational leaders, fleet managers, first discovery calls</span></div>'+
+
+  // Alternatives (collapsible)
+  '<div style="margin-bottom:14px"><button onclick="toggleOpenerAlts()" style="background:none;border:none;color:#a78bfa;font-size:12px;font-weight:500;cursor:pointer;padding:0" id="alt-toggle-btn">▶ Show alternative openers for different audiences</button>'+
+  '<div id="opener-alts" style="display:none;margin-top:10px;display:flex;flex-direction:column;gap:8px">'+
+  '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer" onclick="swapOpener(this,\'exec\')"><div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">👔 Executive (C-suite tone)</div><div style="font-size:13px;color:var(--text)">"Where are you seeing the biggest gap between your plan and what actually happens in execution?"</div></div>'+
+  '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer" onclick="swapOpener(this,\'financial\')"><div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">💰 Financial (faster path to Metrics)</div><div style="font-size:13px;color:var(--text)">"If you had to point to one part of your operation that\'s quietly costing you the most money, where would it be?"</div></div>'+
+  '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer" onclick="swapOpener(this,\'ops\')"><div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">🔧 Operational (dispatcher / ops leader)</div><div style="font-size:13px;color:var(--text)">"Where do things break down during the day that force your team to react instead of execute?"</div></div>'+
+  '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer" onclick="swapOpener(this,\'safe\')"><div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">🛡️ Safe (guarded buyer / formal RFP)</div><div style="font-size:13px;color:var(--text)">"Can you walk me through a typical day in your operation from order to delivery?"</div></div>'+
+  '</div></div>'+
+
+  // Coaching: what to do after they answer
+  '<div class="q-note" style="border-left-color:#8b5cf6;background:rgba(139,92,246,.08)"><div class="q-note-label" style="color:#a78bfa">🎯 After they answer — the 4-step play</div>'+
+  '<div style="font-size:12px;color:#c4b5fd;line-height:1.8">'+
+  '<strong style="color:var(--text)">Step 1: Stay quiet.</strong> Let them think. Resist the urge to fill silence.<br>'+
+  '<strong style="color:var(--text)">Step 2: Mirror + label.</strong> "Sounds like a lot of mid-day rework and unpredictability…"<br>'+
+  '<strong style="color:var(--text)">Step 3: Quantify immediately.</strong> "How often?" → "How many vehicles?" → "What does that translate to?"<br>'+
+  '<strong style="color:var(--text)">Step 4: Anchor the narrative.</strong> "What you\'re describing isn\'t an execution problem — it\'s a planning structure issue."<br>'+
+  '<span style="font-size:11px;color:#a78bfa;margin-top:4px;display:inline-block">👆 That\'s your PTV hook.</span>'+
+  '</div></div>'+
+
+  // Listen-for signals
+  '<div style="font-size:11px;color:#c4b5fd;margin-bottom:6px;font-weight:600;margin-top:12px">🔊 Listen for these signals:</div>'+
+  '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">'+
+  '<span style="background:rgba(139,92,246,.15);color:#c4b5fd;padding:3px 8px;border-radius:12px;font-size:11px">"constantly re-routing"</span>'+
+  '<span style="background:rgba(139,92,246,.15);color:#c4b5fd;padding:3px 8px;border-radius:12px;font-size:11px">"throw bodies at peak"</span>'+
+  '<span style="background:rgba(139,92,246,.15);color:#c4b5fd;padding:3px 8px;border-radius:12px;font-size:11px">"dispatch scrambling"</span>'+
+  '<span style="background:rgba(139,92,246,.15);color:#c4b5fd;padding:3px 8px;border-radius:12px;font-size:11px">"planning takes hours"</span>'+
+  '<span style="background:rgba(139,92,246,.15);color:#c4b5fd;padding:3px 8px;border-radius:12px;font-size:11px">"overtime every week"</span>'+
+  '<span style="background:rgba(139,92,246,.15);color:#c4b5fd;padding:3px 8px;border-radius:12px;font-size:11px">"drivers complaining"</span>'+
+  '</div>'+
+
+  // MEDDIC bridges
+  '<div style="font-size:11px;color:#c4b5fd;margin-bottom:4px;font-weight:600">🔗 Natural MEDDIC bridges from their answer:</div>'+
+  '<div style="font-size:11px;color:#93c5fd;line-height:1.8;margin-bottom:14px">'+
+  '→ <strong>Metrics:</strong> "How often does that happen, and what does it cost you in a week?"<br>'+
+  '→ <strong>Economic Impact:</strong> "If that improved by even 20%, what would that mean financially?"<br>'+
+  '→ <strong>Decision Criteria:</strong> "What needs to change — planning, execution, or both?"<br>'+
+  '→ <strong>Decision Process:</strong> "How do initiatives like this get evaluated internally?"<br>'+
+  '→ <strong>Champion:</strong> "Who feels this pain the most day-to-day?"'+
+  '</div>'+
+
+  '<div style="text-align:center"><button class="btn btn-primary" onclick="transitionToMEDDIC()" style="padding:10px 32px">Customer has responded → Begin MEDDIC coaching</button></div>'+
+  '</div>';
+  timerInterval=setInterval(function(){seconds++;var m=Math.floor(seconds/60),s=seconds%60;var el=document.getElementById('timer-label');if(el)el.textContent='Recording — '+m+':'+('0'+s).slice(-2);},1000);
+}
+
+function toggleOpenerAlts(){
+  var a=document.getElementById('opener-alts');
+  var b=document.getElementById('alt-toggle-btn');
+  if(a.style.display==='none'){a.style.display='flex';b.textContent='▼ Hide alternative openers';}
+  else{a.style.display='none';b.textContent='▶ Show alternative openers for different audiences';}
+}
+
+function swapOpener(el,type){
+  var texts={exec:'"Where are you seeing the biggest gap between your plan and what actually happens in execution?"',financial:'"If you had to point to one part of your operation that\'s quietly costing you the most money, where would it be?"',ops:'"Where do things break down during the day that force your team to react instead of execute?"',safe:'"Can you walk me through a typical day in your operation from order to delivery?"'};
+  var labels={exec:'Best for: VPs, COOs, C-suite executives',financial:'Best for: finance-oriented buyers, fast Metrics path',ops:'Best for: dispatchers, ops managers, hands-on leaders',safe:'Best for: guarded buyers, formal RFP processes, first meetings'};
+  var mainQ=document.querySelector('.q-text');
+  var subLabel=mainQ.nextElementSibling;
+  if(mainQ)mainQ.textContent=texts[type]||texts.exec;
+  if(subLabel)subLabel.innerHTML='<span style="font-size:11px;color:var(--text3)">'+(labels[type]||'')+'</span>';
+  showToast('Opener switched');
+}
+
+function transitionToMEDDIC(){
+  updateCoaching();
+  simulateProgress();
+}
+function updateCoaching(){
+  var q=QUESTIONS[currentQ%QUESTIONS.length];var note=NOTES[q.element]||'Listen carefully.';
+  var h='<div class="rec-bar"><div class="rec-dot"></div><span class="rec-label" id="timer-label">Recording — 0:00</span><button class="btn btn-danger btn-sm" onclick="endSess()">End</button></div>';
+  h+='<div class="q-card" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between"><div style="flex:1"><span class="q-badge">'+q.element+'</span><p class="q-text">'+q.text+'</p></div><button class="star-btn" id="star-btn" onclick="starQ()">☆</button></div>';
+  h+='<div class="q-note"><div class="q-note-label">💡 Why ask this</div>'+note+'</div>';
+  h+='<div class="qis"><span class="qis-label">Intent</span><div class="qis-track"><div class="qis-fill" id="qis-fill" style="width:0%;background:var(--yellow)"></div></div><span class="qis-val" id="qis-score">0</span></div>';
+  h+='<div class="q-controls"><button class="btn-green btn" onclick="acceptQ2()">✓ Accept</button><button class="btn btn-ghost" onclick="skipQ2()">Skip</button><button class="btn btn-ghost" onclick="toggleAlts2()">Alt</button></div>';
+  h+='<div id="alts2" style="display:none;margin-top:8px"><button class="alt-btn" onclick="pickAlt2(this)">If you could change one thing about your fleet, what would it be?</button><button class="alt-btn" onclick="pickAlt2(this)">What are the top priorities your supply chain team is focused on?</button></div></div>';
+  h+='<div class="card"><div class="card-title" style="margin-bottom:10px">MEDDIC Coverage</div><div id="meters2"></div></div>';
+  document.getElementById('s-coaching').innerHTML=h;
+  renderMeters2();animateQIS();
+}
+function animateQIS(){var qis=0,target=45+Math.floor(Math.random()*45);var iv=setInterval(function(){qis=Math.min(target,qis+3);var el=document.getElementById('qis-score');var fill=document.getElementById('qis-fill');if(el)el.textContent=qis;if(fill){fill.style.width=qis+'%';if(qis>=70)fill.style.background='var(--green)';}if(qis>=target)clearInterval(iv);},40);}
+function acceptQ2(){
+  var prevQ=QUESTIONS[(currentQ)%QUESTIONS.length];
+  currentQ++;
+  var el=MEDDIC.find(function(m){return m.key===prevQ.element;});
+  var scoreDelta=12;
+  if(el)el.score=Math.min(100,el.score+scoreDelta);
+
+  // Simulated AI summaries based on MEDDIC element
+  var summaries={
+    Goals:'Customer targets 15% cost reduction within 12 months. Wants to consolidate from 3 carriers to 1 optimized fleet. Success = fewer trucks, same or better service levels.',
+    IdentifyPain:'Manual routing takes 3+ hours daily. Dispatchers rely on tribal knowledge. When key planner is out, routes fall apart. Late deliveries averaging 13% of total.',
+    Metrics:'Currently tracking OTD at 87% (target 95%). Cost per stop is $18.40. Fleet utilization hovering around 68%. No visibility into driver idle time.',
+    EconomicBuyer:'VP of Supply Chain (Thomas Weber) holds budget authority. Reports to COO. Has approved similar tech investments in the past 18 months.',
+    Champion:'Operations Manager (Lisa Chen) is frustrated with current process. Already researched PTV competitors. Willing to run a pilot and present results to leadership.',
+    DecisionProcess:'Currently in evaluation phase. RFP expected Q3. IT security review required. 3 vendors being considered. Decision committee meets monthly.',
+    Obstacles:'Previous attempt with competitor failed due to poor data integration. IT team is stretched thin. Union concerns about driver monitoring.',
+    DecisionCriteria:'Must integrate with SAP TM. ROI payback under 12 months. No disruption to current operations during rollout. GDPR compliance mandatory.'
+  };
+  var summary=summaries[prevQ.element]||'Customer provided detailed response covering key aspects of '+prevQ.element.replace(/([A-Z])/g,' $1').trim()+'. Key data points captured for follow-up.';
+
+  // Show summary panel
+  var cp=document.getElementById('s-coaching');
+  var h='<div class="rec-bar"><div class="rec-dot"></div><span class="rec-label" id="timer-label">Recording — paused for review</span><button class="btn btn-danger btn-sm" onclick="endSess()">End</button></div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(59,130,246,.05));border:1px solid rgba(34,197,94,.25);border-radius:var(--radius);padding:16px;margin-bottom:14px">';
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:16px">🤖</span><span style="font-size:13px;font-weight:600;color:var(--green)">AI Summary — Customer Response</span><span class="q-badge" style="margin-left:auto">'+prevQ.element+'</span></div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Question: "'+prevQ.text+'"</div>';
+  h+='<div style="font-size:13px;color:var(--text);line-height:1.7;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:12px">'+summary+'</div>';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between">';
+  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--green);font-weight:600">+'+scoreDelta+' '+prevQ.element.replace(/([A-Z])/g,' $1').trim()+'</span><span style="font-size:11px;color:var(--text3)">· Score updated</span></div>';
+  h+='<button class="btn btn-primary" onclick="updateCoaching()" style="padding:8px 20px">Continue to Next Question →</button>';
+  h+='</div></div>';
+  h+='<div class="card"><div class="card-title" style="margin-bottom:10px">MEDDIC Coverage</div><div id="meters2"></div></div>';
+  cp.innerHTML=h;
+  renderMeters2();
+}
+function skipQ2(){currentQ++;updateCoaching();}
+function toggleAlts2(){var a=document.getElementById('alts2');if(a)a.style.display=a.style.display==='none'?'block':'none';}
+function pickAlt2(btn){currentQ++;updateCoaching();}
+function starQ(){starred=!starred;var b=document.getElementById('star-btn');if(b){b.textContent=starred?'★':'☆';if(starred){b.classList.add('starred');showToast('★ Saved');}else b.classList.remove('starred');}}
+function renderMeters2(){var c=document.getElementById('meters2');if(!c)return;c.innerHTML=MEDDIC.map(function(m){var pct=Math.min(100,m.score),ok=pct>=100;var color=ok?'var(--green)':pct>=70?'var(--accent)':'var(--surface2)';var label=m.key.replace(/([A-Z])/g,' $1').trim();return '<div class="meter"><span class="meter-label">'+label+'</span><div class="meter-track"><div class="meter-fill" style="width:'+pct+'%;background:'+color+'"></div></div><span class="meter-val" style="color:'+(ok?'var(--green)':'var(--text3)')+'">'+( ok?'✓':pct)+'</span></div>';}).join('');}
+function simulateProgress(){if(!sessionActive)return;setTimeout(function(){MEDDIC.forEach(function(m){if(Math.random()>.6)m.score=Math.min(100,m.score+Math.floor(Math.random()*8));});renderMeters2();if(sessionActive)simulateProgress();},3000);}
+function endSess(){
+  sessionActive=false;clearInterval(timerInterval);
+  document.getElementById('s-coaching').style.display='none';
+  var sp=document.getElementById('s-summary');sp.style.display='block';
+
+  // Snapshot scores at session end and compute deltas from session start
+  // _sessionStartScores was captured at beginSession
+  var startScores=window._sessionStartScores||{};
+  var isFirstSession=Object.keys(startScores).length===0||Object.values(startScores).every(function(v){return v===0;});
+
+  var kpiHtml='<div class="card"><div class="card-title" style="margin-bottom:12px">📊 MEDDIC Scores — End of Session</div>';
+  kpiHtml+='<div style="display:flex;flex-direction:column;gap:6px">';
+  for(var i=0;i<MEDDIC.length;i++){
+    var m=MEDDIC[i];
+    var label=m.key.replace(/([A-Z])/g,' $1').trim();
+    var prev=startScores[m.key]||0;
+    var delta=m.score-prev;
+    var pct=Math.min(100,m.score);
+    var barColor=pct>=70?'var(--green)':pct>=40?'var(--accent)':'var(--red)';
+
+    // Delta badge
+    var deltaHtml='';
+    if(!isFirstSession&&delta>0) deltaHtml='<span style="color:var(--green);font-weight:600;background:var(--green-bg);padding:2px 8px;border-radius:12px;font-size:10px;margin-left:6px">+'+delta+'</span>';
+    else if(!isFirstSession&&delta<0) deltaHtml='<span style="color:var(--red);font-weight:600;background:var(--red-bg);padding:2px 8px;border-radius:12px;font-size:10px;margin-left:6px">'+delta+'</span>';
+    else if(isFirstSession) deltaHtml='<span style="color:var(--text3);font-size:10px;margin-left:6px">baseline</span>';
+    else deltaHtml='<span style="color:var(--text3);font-size:10px;margin-left:6px">no change</span>';
+
+    kpiHtml+='<div style="display:flex;align-items:center;gap:8px">';
+    kpiHtml+='<span style="width:130px;font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</span>';
+    kpiHtml+='<div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:3px;transition:width .4s"></div></div>';
+    kpiHtml+='<span style="width:28px;text-align:right;font-size:12px;font-weight:500;color:'+(pct>=70?'var(--green)':pct>=40?'var(--text)':'var(--red)')+'">'+m.score+'</span>';
+    kpiHtml+=deltaHtml;
+    kpiHtml+='</div>';
+  }
+  kpiHtml+='</div>';
+
+  // Needs attention section
+  var weak=MEDDIC.filter(function(m){return m.score<50;});
+  if(weak.length>0){
+    kpiHtml+='<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">';
+    kpiHtml+='<div style="font-size:11px;font-weight:600;color:var(--red);margin-bottom:6px">⚠ Needs attention on next call</div>';
+    for(var w=0;w<weak.length;w++){
+      var wm=weak[w];
+      var wLabel=wm.key.replace(/([A-Z])/g,' $1').trim();
+      kpiHtml+='<div style="font-size:12px;color:var(--text2);margin-bottom:3px">'+wLabel+' ('+wm.score+'%) — prioritize in next session</div>';
+    }
+    kpiHtml+='</div>';
+  }
+  kpiHtml+='</div>';
+
+  sp.innerHTML='<div class="card" style="background:var(--green-bg);border-color:rgba(34,197,94,.2)"><div style="font-size:14px;font-weight:600;color:var(--green)">Session Complete</div><div style="font-size:12px;color:#86efac;margin-top:2px">AI summary generated in 8s</div></div>'+
+  kpiHtml+
+  '<div style="font-size:12px;font-weight:500;color:var(--text3);margin-bottom:8px">Summary (editable)</div><textarea class="summary-textarea">Key findings:\n• Goals: 15% cost reduction target\n• Pain: Manual routing 3+ hrs/day\n• Metrics: OTD 87%, target 95%\n\nAction items:\n1. Technical call with IT\n2. ROI calculator review\n3. Pilot proposal</textarea><div class="export-grid"><button class="btn btn-primary">Salesforce</button><button class="btn btn-primary">Microsoft 365</button><button class="btn btn-ghost">✉ Email</button><button class="btn btn-ghost">💬 SMS</button></div>'+
+  '<div style="margin-top:20px;background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(139,92,246,.08));border:2px solid rgba(59,130,246,.3);border-radius:var(--radius);padding:20px;animation:pulseGlow 2s ease-in-out infinite">'+
+  '<div style="font-size:15px;font-weight:700;color:var(--accent);margin-bottom:4px">🚀 What\'s Next?</div>'+
+  '<div style="font-size:12px;color:var(--text2);margin-bottom:16px">Choose your next step to keep the deal moving forward.</div>'+
+  '<div style="display:flex;flex-direction:column;gap:10px">'+
+  '<button class="btn btn-primary btn-full" onclick="window.currentView=\'overview\';window.render()" style="padding:12px;font-size:13px;text-align:left;display:flex;align-items:center;gap:10px"><span style="font-size:18px">📁</span><span><strong>View Account Overview</strong><br><span style="font-size:11px;opacity:.8">See updated MEDDIC health, deal map, and timeline</span></span></button>'+
+  '<button class="btn btn-full" onclick="window.currentView=\'roi\';window.render()" style="padding:12px;font-size:13px;text-align:left;display:flex;align-items:center;gap:10px;background:var(--green);color:#fff;border:none"><span style="font-size:18px">📊</span><span><strong>Build ROI Calculator</strong><br><span style="font-size:11px;opacity:.8">Use session data to quantify value for the customer</span></span></button>'+
+  '<button class="btn btn-ghost btn-full" onclick="window.currentView=\'contacts\';window.render()" style="padding:12px;font-size:13px;text-align:left;display:flex;align-items:center;gap:10px"><span style="font-size:18px">👥</span><span><strong>Manage Contacts</strong><br><span style="font-size:11px;opacity:.8">Update stakeholder map and deal roles</span></span></button>'+
+  '<button class="btn btn-ghost btn-full" onclick="window.currentView=\'session\';window.render()" style="padding:12px;font-size:13px;text-align:left;display:flex;align-items:center;gap:10px"><span style="font-size:18px">🎙</span><span><strong>Start Another Session</strong><br><span style="font-size:11px;opacity:.8">Continue discovery to improve weak MEDDIC areas</span></span></button>'+
+  '</div></div>';
+}
+
+function renderROI(){
+  var h=backButtonHtml()+'<div class="page-title">ROI Calculator</div><div class="page-sub">'+currentAcct.name+' · 🟢 Confirmed · 🟡 Estimate</div>';
+  h+='<div class="card"><div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn btn-primary btn-sm" id="unit-mi" onclick="setUnit(\'mi\')">miles</button><button class="btn btn-ghost btn-sm" id="unit-km" onclick="setUnit(\'km\')">km</button><span style="flex:1"></span><button class="btn btn-ghost btn-sm" id="sav8" onclick="setSavPct(8)">8%</button><button class="btn btn-primary btn-sm" id="sav10" onclick="setSavPct(10)">10%</button><button class="btn btn-ghost btn-sm" id="sav15" onclick="setSavPct(15)">15%</button></div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  var fields=[['roi-vehicles','Vehicles/day','150'],['roi-dist','Avg mi/route','125'],['roi-days','Days/year','220'],['roi-cpm','Cost/mi ($)','1.50'],['roi-stops','Stops/route','12'],['roi-ot','OT hrs/wk','3'],['roi-planners','Planners','3'],['roi-planhrs','Plan hrs/day','2']];
+  for(var i=0;i<fields.length;i++){var f=fields[i];h+='<div><label style="font-size:11px;color:var(--text3)">'+f[1]+'</label><input type="number" id="'+f[0]+'" placeholder="'+f[2]+'" oninput="markField(\''+f[0].replace('roi-','')+'\');calcROI()" style="width:100%;border-color:var(--yellow);background:var(--yellow-bg)"></div>';}
+  h+='</div><div style="font-size:11px;color:var(--text3);margin-top:10px">🟢 <span id="confirmed-count">0</span> confirmed · 🟡 <span id="estimate-count">8</span> estimates</div></div>';
+  h+='<div id="roi-results" style="display:none" class="card"><div style="font-size:12px;font-weight:500;color:var(--text3);margin-bottom:8px">Annual Savings</div><div id="roi-streams"></div><div class="roi-summary"><div style="display:flex;justify-content:space-around"><div><div style="font-size:24px;font-weight:700;color:#60a5fa" id="roi-pct">—</div><div style="font-size:10px;color:var(--text3)">ROI</div></div><div><div style="font-size:24px;font-weight:700;color:#60a5fa" id="roi-payback">—</div><div style="font-size:10px;color:var(--text3)">Payback</div></div><div><div style="font-size:24px;font-weight:700;color:#60a5fa" id="roi-total">—</div><div style="font-size:10px;color:var(--text3)">Savings/yr</div></div></div></div></div>';
+  h+='<div id="roi-empty" class="card" style="text-align:center;color:var(--text3);padding:32px">Enter vehicles, distance, and cost to see ROI</div>';
+  return h;
+}
+
+function renderLeexi(){
+  var h=backButtonHtml()+'<div class="page-title">Leexi Import</div><div class="page-sub">Import calls for '+currentAcct.name+'</div>';
+  h+='<div class="card" style="padding:0;overflow:hidden">';
+  var calls=[{title:'Discovery Call — '+currentAcct.name,date:'Apr 4, 2026',dur:'38m',ready:true},{title:'Follow-up — IT Review',date:'Apr 3, 2026',dur:'22m',ready:true},{title:'Quick Check-in',date:'Apr 1, 2026',dur:'12m',ready:false}];
+  for(var i=0;i<calls.length;i++){var c=calls[i];h+='<div class="leexi-call"><div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">'+c.title+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px">'+c.date+' · '+c.dur+'</div></div><span class="badge '+(c.ready?'badge-green':'badge-yellow')+'">'+(c.ready?'Ready':'Processing')+'</span><button class="btn btn-primary btn-sm" '+(c.ready?'onclick="simulateLeexiImport(this)"':'disabled style="opacity:.4"')+'>Import</button></div>';}
+  h+='</div><div id="leexi-import-result" style="margin-top:14px"></div>';
+  return h;
+}
+
+function renderContacts(){
+  var contacts=currentAcct.contacts||[];
+  var h=backButtonHtml()+'<div style="display:flex;justify-content:space-between;margin-bottom:20px"><div class="page-title">Contacts</div><button class="btn btn-primary btn-sm" onclick="alert(\'Add contact — scan business card or enter manually\')">+ Add Contact</button></div>';
+  if(contacts.length===0){h+='<div class="card" style="text-align:center;padding:32px;color:var(--text3)">No contacts yet. Add one to start mapping the deal.</div>';return h;}
+  // Group by deal role
+  var roleOrder=['Economic Buyer','Champion','Technical Buyer','End User','Decision Influencer'];
+  var roleIcons={'Economic Buyer':'💰','Champion':'⭐','Technical Buyer':'🔧','End User':'👤','Decision Influencer':'🎯'};
+  var roleColors={'Economic Buyer':'var(--red)','Champion':'var(--yellow)','Technical Buyer':'var(--accent)','End User':'var(--text3)','Decision Influencer':'var(--text3)'};
+  var tierColors={'C-suite':'#a78bfa','Senior Leader':'#60a5fa','Line Manager':'var(--green)','Operational':'var(--yellow)','Technical':'#f472b6'};
+  for(var r=0;r<roleOrder.length;r++){
+    var role=roleOrder[r];
+    var inRole=contacts.filter(function(c){return c.dealRole===role;});
+    if(inRole.length===0)continue;
+    h+='<div class="contact-group" style="display:flex;align-items:center;gap:6px"><span>'+roleIcons[role]+'</span><span>'+role+'</span></div>';
+    for(var i=0;i<inRole.length;i++){
+      var c=inRole[i];
+      var tierBadgeColor=tierColors[c.tier]||'var(--text3)';
+      h+='<div class="contact-row" style="flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="font-size:13px;font-weight:500;color:var(--text)">'+c.name+'</div><div style="font-size:11px;color:var(--text3)">'+c.title+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px">'+c.email+'</div></div>';
+      h+='<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">';
+      h+='<span style="background:rgba(139,92,246,.12);color:'+tierBadgeColor+';padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600">'+c.tier+(c.tierAuto?' (auto)':'')+'</span>';
+      h+='<select onchange="changeRole(\''+c.email+'\',this.value)" style="font-size:10px;padding:2px 6px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text)">';
+      for(var ro=0;ro<roleOrder.length;ro++){h+='<option'+(roleOrder[ro]===c.dealRole?' selected':'')+'>'+roleOrder[ro]+'</option>';}
+      h+='</select>';
+      h+='</div></div>';
+    }
+  }
+  // Show unmapped contacts
+  var unmapped=contacts.filter(function(c){return !c.dealRole;});
+  if(unmapped.length>0){
+    h+='<div class="contact-group">❓ Unmapped</div>';
+    for(var u=0;u<unmapped.length;u++){h+='<div class="contact-row"><div style="flex:1"><div style="font-size:13px;color:var(--text)">'+unmapped[u].name+'</div><div style="font-size:11px;color:var(--text3)">'+unmapped[u].title+'</div></div></div>';}
+  }
+  return h;
+}
+
+function renderAdmin(){
+  var h=backButtonHtml()+'<div class="page-title">Question Bank</div><div class="page-sub">Manage discovery questions</div>';
+  h+='<div class="card"><div class="card-title">Bulk Upload</div><div style="font-size:12px;color:var(--text3);margin:6px 0 10px">CSV: question_text, meddic_element, buyer_persona, coaching_note, industry_segment</div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm">📁 Choose CSV</button><button class="btn btn-ghost btn-sm">⬇ Template</button></div></div>';
+  h+='<div style="font-size:12px;font-weight:500;color:var(--text3);margin-bottom:10px">12 MEDDIC elements · 200+ questions · 3 industry segments</div>';
+  var elements=['Goals','Metrics','EconomicBuyer','IdentifyPain','Champion','DecisionProcess'];
+  for(var i=0;i<elements.length;i++){var el=elements[i];h+='<div class="q-group-title">'+el.replace(/([A-Z])/g,' $1').trim()+'</div>';h+='<div class="q-item"><div style="font-size:12px;color:var(--text);line-height:1.5">'+QUESTIONS[i%QUESTIONS.length].text+'</div><div style="font-size:10px;color:var(--text3);margin-top:3px">LogisticsDirector <span class="badge badge-blue" style="font-size:9px">Universal</span></div><div class="q-note" style="margin-top:6px;margin-bottom:0;padding:6px 8px;font-size:11px">💡 '+(NOTES[el]||'')+'</div></div>';}
+  return h;
+}
+
+function showToast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove();},2000);}
+
+function showScheduleForm(){
+  var f=document.getElementById('schedule-form');if(!f)return;
+  if(f.style.display==='block'){f.style.display='none';return;}
+  f.style.display='block';
+  f.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px"><div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:10px">Schedule Follow-up</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"><div><label style="font-size:11px;color:var(--text3)">Date</label><input type="date" style="width:100%"></div><div><label style="font-size:11px;color:var(--text3)">Time</label><input type="time" value="10:00" style="width:100%"></div><div style="grid-column:span 2"><label style="font-size:11px;color:var(--text3)">Purpose</label><select style="width:100%"><option>Discovery follow-up</option><option>Technical review with IT</option><option>ROI presentation to leadership</option><option>Pilot proposal review</option><option>Contract discussion</option></select></div><div style="grid-column:span 2"><label style="font-size:11px;color:var(--text3)">Attendees to invite</label><input placeholder="e.g. Sarah Müller, Thomas Bauer" style="width:100%"></div><div style="grid-column:span 2"><label style="font-size:11px;color:var(--text3)">Notes</label><input placeholder="e.g. Need to cover Economic Buyer and Champion gaps" style="width:100%"></div></div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="scheduleFollowUp()">📅 Schedule & Add to Calendar</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'schedule-form\').style.display=\'none\'">Cancel</button></div></div>';
+}
+
+function scheduleFollowUp(){
+  document.getElementById('schedule-form').style.display='none';
+  showToast('📅 Follow-up scheduled and added to Outlook calendar');
+}
+
+function changeRole(email,newRole){
+  var contacts=currentAcct.contacts||[];
+  for(var i=0;i<contacts.length;i++){
+    if(contacts[i].email===email){contacts[i].dealRole=newRole;break;}
+  }
+  showToast('Role updated to '+newRole);
+  render();
+}
+
+var TIER_CONFIG={
+  'C-suite':{opener:'👔 Executive',openerDesc:'Strategic, financial, board-level',icon:'💰',color:'#a78bfa'},
+  'Senior Leader':{opener:'👔 Executive / 🔧 Operational',openerDesc:'Strategic with operational depth',icon:'📊',color:'#60a5fa'},
+  'Line Manager':{opener:'🔧 Operational',openerDesc:'Process-focused, day-to-day',icon:'⚙️',color:'var(--green)'},
+  'Operational':{opener:'🔧 Operational',openerDesc:'Tactical, hands-on, tool-focused',icon:'👤',color:'var(--yellow)'},
+  'Technical':{opener:'🛡️ Safe / Structured',openerDesc:'Integration, security, architecture',icon:'🔧',color:'#f472b6'}
+};
+var ROLE_CONFIG={
+  'Economic Buyer':{focus:'ROI · Risk · Strategic Impact',focusDesc:'EB messaging — justify the investment',color:'var(--red)'},
+  'Champion':{focus:'Win Internally · Look Good · Career Impact',focusDesc:'Help them sell it inside',color:'var(--yellow)'},
+  'Technical Buyer':{focus:'Feasibility · Integration · Security',focusDesc:'Prove it works in their stack',color:'var(--accent)'},
+  'End User':{focus:'Ease of Use · Workflow · Daily Impact',focusDesc:'Show it makes their job easier',color:'var(--text3)'},
+  'Decision Influencer':{focus:'Cost Justification · Service Impact',focusDesc:'Give them data to support the case',color:'var(--text3)'}
+};
+
+function updateRoleRecommendation(){
+  var tierEl=document.getElementById('detected-tier');
+  var roleEl=document.getElementById('detected-role');
+  var display=document.getElementById('role-rec-display');
+  if(!tierEl||!roleEl||!display)return;
+  var tier=tierEl.value;
+  var role=roleEl.value;
+  var tc=TIER_CONFIG[tier]||TIER_CONFIG['Line Manager'];
+  var rc=ROLE_CONFIG[role]||ROLE_CONFIG['End User'];
+  display.innerHTML='<div style="flex:1;background:var(--surface);border:1px solid rgba(59,130,246,.3);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Recommended Opener</div><div style="font-size:12px;color:'+tc.color+';font-weight:500">'+tc.opener+'</div><div style="font-size:10px;color:var(--text3);margin-top:2px">'+tc.openerDesc+'</div></div>'+
+  '<div style="flex:1;background:var(--surface);border:1px solid rgba(34,197,94,.3);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Question Focus</div><div style="font-size:12px;color:'+rc.color+';font-weight:500">'+rc.focus+'</div><div style="font-size:10px;color:var(--text3);margin-top:2px">'+rc.focusDesc+'</div></div>';
+}
+function simulateLeexiImport(btn){btn.textContent='Importing…';btn.disabled=true;setTimeout(function(){btn.textContent='✓ Done';btn.style.background='var(--green)';var r=document.getElementById('leexi-import-result');if(r){r.innerHTML='<div class="card" style="background:var(--green-bg);border-color:rgba(34,197,94,.2)"><div style="font-size:13px;font-weight:600;color:var(--green)">Import Complete</div><div style="font-size:12px;color:#86efac;margin-top:4px;line-height:1.6">✓ 47 segments imported · Summary generated</div></div><div class="card"><div class="card-title" style="margin-bottom:10px">MEDDIC Score Changes</div><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;align-items:center;justify-content:space-between;font-size:12px"><span style="color:var(--text2)">Goals</span><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text)">85%</span><span style="color:var(--green);font-weight:600;background:var(--green-bg);padding:2px 8px;border-radius:12px;font-size:11px">+12</span></div></div><div style="display:flex;align-items:center;justify-content:space-between;font-size:12px"><span style="color:var(--text2)">Metrics</span><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text)">72%</span><span style="color:var(--green);font-weight:600;background:var(--green-bg);padding:2px 8px;border-radius:12px;font-size:11px">+8</span></div></div><div style="display:flex;align-items:center;justify-content:space-between;font-size:12px"><span style="color:var(--text2)">Identify Pain</span><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text)">81%</span><span style="color:var(--green);font-weight:600;background:var(--green-bg);padding:2px 8px;border-radius:12px;font-size:11px">+15</span></div></div><div style="display:flex;align-items:center;justify-content:space-between;font-size:12px"><span style="color:var(--text2)">Economic Buyer</span><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text)">38%</span><span style="color:var(--text3);font-weight:500;background:var(--surface2);padding:2px 8px;border-radius:12px;font-size:11px">+0</span></div></div><div style="display:flex;align-items:center;justify-content:space-between;font-size:12px"><span style="color:var(--text2)">Champion</span><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text)">42%</span><span style="color:var(--text3);font-weight:500;background:var(--surface2);padding:2px 8px;border-radius:12px;font-size:11px">+0</span></div></div><div style="display:flex;align-items:center;justify-content:space-between;font-size:12px"><span style="color:var(--text2)">Decision Process</span><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text)">56%</span><span style="color:var(--green);font-weight:600;background:var(--green-bg);padding:2px 8px;border-radius:12px;font-size:11px">+5</span></div></div><div style="display:flex;align-items:center;justify-content:space-between;font-size:12px"><span style="color:var(--text2)">Obstacles</span><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text)">41%</span><span style="color:var(--red);font-weight:600;background:var(--red-bg);padding:2px 8px;border-radius:12px;font-size:11px">-3</span></div></div></div><div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:500;color:var(--text3);margin-bottom:6px">⚠ Still needs attention</div><div style="font-size:12px;color:var(--red);margin-bottom:3px">Economic Buyer (38%) — no progress. Invite VP or COO to next call.</div><div style="font-size:12px;color:var(--red)">Champion (42%) — no progress. Identify an internal advocate.</div></div></div>';}},2000);}
+function markField(f){confirmedFields[f]=true;var inp=document.getElementById('roi-'+f);if(inp){inp.style.borderColor='var(--green)';inp.style.background='var(--green-bg)';}var fields=['vehicles','dist','days','cpm','stops','ot','planners','planhrs'];var c=0;for(var i=0;i<fields.length;i++){if(confirmedFields[fields[i]])c++;}var ce=document.getElementById('confirmed-count');var ee=document.getElementById('estimate-count');if(ce)ce.textContent=c;if(ee)ee.textContent=fields.length-c;}
+function setUnit(u){roiUnit=u;var mi=document.getElementById('unit-mi');var km=document.getElementById('unit-km');if(mi)mi.className=u==='mi'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';if(km)km.className=u==='km'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';calcROI();}
+function setSavPct(p){roiSavPct=p;[8,10,15].forEach(function(v){var b=document.getElementById('sav'+v);if(b)b.className=v===p?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';});calcROI();}
+function calcROI(){var v=parseFloat((document.getElementById('roi-vehicles')||{}).value)||0;var d=parseFloat((document.getElementById('roi-dist')||{}).value)||0;var days=parseFloat((document.getElementById('roi-days')||{}).value)||0;var cpm=parseFloat((document.getElementById('roi-cpm')||{}).value)||0;var stops=parseFloat((document.getElementById('roi-stops')||{}).value)||0;var ot=parseFloat((document.getElementById('roi-ot')||{}).value)||0;var planners=parseFloat((document.getElementById('roi-planners')||{}).value)||0;var planhrs=parseFloat((document.getElementById('roi-planhrs')||{}).value)||0;var re=document.getElementById('roi-results');var em=document.getElementById('roi-empty');if(!re||!em)return;if(v===0||d===0||cpm===0){re.style.display='none';em.style.display='block';return;}em.style.display='none';var distSav=v*d*days*cpm*(roiSavPct/100);var otSav=v*ot*0.25*30*52;var podSav=v*stops*days*0.75;var planSav=planners*Math.max(0,planhrs-0.25)*35*days;var sub=v*100*12;var total=distSav+otSav+podSav+planSav;var net=total-sub;var roi=sub>0?Math.round(net/sub*100):0;var pb=total>0?Math.round(sub/(total/12)*10)/10:0;function row(l,val,ok){return '<div class="roi-row"><span style="color:var(--text2)">'+(ok?'🟢':'🟡')+' '+l+'</span><span style="font-weight:500;color:'+(val>0?'var(--green)':'var(--text3)')+'">$'+Math.round(val).toLocaleString()+'</span></div>';}var s='';s+=row('Distance ('+roiSavPct+'%)',distSav,confirmedFields.vehicles&&confirmedFields.dist&&confirmedFields.cpm);s+=row('Overtime (25%)',otSav,confirmedFields.ot);s+=row('Digital POD',podSav,confirmedFields.stops);s+=row('Planning labor',planSav,confirmedFields.planners&&confirmedFields.planhrs);s+='<div style="border-top:1px solid var(--border);margin:8px 0"></div>';s+='<div class="roi-row"><span style="font-weight:600;color:var(--text)">Total</span><span style="font-weight:600;color:var(--green)">$'+Math.round(total).toLocaleString()+'</span></div>';s+='<div class="roi-row"><span style="color:var(--text2)">PTV Cost</span><span style="color:var(--red)">-$'+Math.round(sub).toLocaleString()+'</span></div>';s+='<div class="roi-row"><span style="font-weight:600;color:var(--text)">Net</span><span style="font-weight:600;color:'+(net>0?'var(--green)':'var(--red)')+'">$'+Math.round(net).toLocaleString()+'</span></div>';var st=document.getElementById('roi-streams');if(st)st.innerHTML=s;var rp=document.getElementById('roi-pct');if(rp)rp.textContent=roi+'%';var rpb=document.getElementById('roi-payback');if(rpb)rpb.textContent=pb+'mo';var rt=document.getElementById('roi-total');if(rt)rt.textContent='$'+Math.round(total/1000)+'K';re.style.display='block';}
+
+// ── Leexi Pull / Push panels ──────────────────────────────────────
+function showLeexiPull(){
+  var p=document.getElementById('leexi-panel');if(!p)return;
+  p.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">' +
+  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--text)">⬇️ Pull from Leexi</div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'leexi-panel\').innerHTML=\'\'">✕</button></div>' +
+  '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Recent calls in your Leexi workspace. Click Import to pull the transcript and run MEDDIC analysis.</div>' +
+  '<div style="display:flex;flex-direction:column;gap:8px">' +
+  leexiCallRow('Discovery Call — Müller Kühllogistik','Apr 4, 2026','42m 18s','✓ Transcript ready','#22c55e') +
+  leexiCallRow('Follow-up — Weber Spedition','Apr 2, 2026','28m 45s','✓ Transcript ready','#22c55e') +
+  leexiCallRow('Intro Call — Schmidt Logistics','Mar 28, 2026','15m 22s','⏳ Processing...','#eab308') +
+  '</div>' +
+  '<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--text3)">Showing 3 of 12 calls</span><button class="btn btn-ghost btn-sm" onclick="showToast(\'Loading more calls...\')">Load more</button></div>' +
+  '</div>';
+}
+function leexiCallRow(title,date,dur,status,color){
+  return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--glass);border:1px solid rgba(71,85,105,.3);border-radius:var(--radius-sm)">' +
+  '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+title+'</div>' +
+  '<div style="display:flex;gap:8px;margin-top:2px"><span style="font-size:11px;color:var(--text3)">'+date+'</span><span style="font-size:11px;color:var(--text3)">'+dur+'</span>' +
+  '<span style="font-size:11px;color:'+color+'">'+status+'</span></div></div>' +
+  '<button class="btn btn-sm" onclick="simulateLeexiImportBtn(this)" style="background:#6366f1;color:#fff;border:none;white-space:nowrap">Import</button></div>';
+}
+function simulateLeexiImportBtn(btn){
+  btn.textContent='Importing…';btn.disabled=true;btn.style.opacity='.6';
+  setTimeout(function(){btn.textContent='✓ Done';btn.style.background='var(--green)';btn.style.opacity='1';showToast('✓ Transcript imported — MEDDIC analysis complete');},2000);
+}
+function showLeexiPush(){
+  var p=document.getElementById('leexi-panel');if(!p)return;
+  p.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">' +
+  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--text)">⬆️ Push to Leexi</div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'leexi-panel\').innerHTML=\'\'">✕</button></div>' +
+  '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Send session recordings to Leexi for AI transcription, summarization, and archival.</div>' +
+  '<div style="display:flex;flex-direction:column;gap:8px">' +
+  leexiPushRow('Session — Apr 4, 2026','42m 18s','3.2 MB','Ready to push') +
+  leexiPushRow('Session — Apr 2, 2026','28m 45s','2.1 MB','Ready to push') +
+  leexiPushRow('Session — Mar 28, 2026','15m 22s','1.4 MB','Already in Leexi') +
+  '</div>' +
+  '<div style="margin-top:12px;display:flex;gap:8px"><button class="btn btn-sm" onclick="simulateLeexiPushAll(this)" style="background:#10b981;color:#fff;border:none">⬆️ Push All Pending</button><span style="font-size:11px;color:var(--text3);display:flex;align-items:center">2 sessions ready · 5.3 MB total</span></div>' +
+  '</div>';
+}
+function leexiPushRow(title,dur,size,status){
+  var done=status==='Already in Leexi';
+  return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--glass);border:1px solid rgba(71,85,105,.3);border-radius:var(--radius-sm);opacity:'+(done?'.5':'1')+'">' +
+  '<div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">'+title+'</div>' +
+  '<div style="display:flex;gap:8px;margin-top:2px"><span style="font-size:11px;color:var(--text3)">'+dur+'</span><span style="font-size:11px;color:var(--text3)">'+size+'</span>' +
+  '<span style="font-size:11px;color:'+(done?'var(--green)':'var(--yellow)')+'">'+status+'</span></div></div>' +
+  (done?'<span style="font-size:11px;color:var(--green)">✓</span>':'<button class="btn btn-sm" onclick="simulateLeexiPushOne(this)" style="background:#10b981;color:#fff;border:none">Push</button>')+'</div>';
+}
+function simulateLeexiPushOne(btn){
+  btn.textContent='Uploading…';btn.disabled=true;btn.style.opacity='.6';
+  setTimeout(function(){btn.textContent='✓ Sent';btn.style.background='var(--green)';btn.style.opacity='1';showToast('✓ Audio uploaded — Leexi will transcribe in ~3 min');},2500);
+}
+function simulateLeexiPushAll(btn){
+  btn.textContent='Uploading 2 sessions…';btn.disabled=true;btn.style.opacity='.6';
+  setTimeout(function(){btn.textContent='✓ All sent';btn.style.background='var(--green)';btn.style.opacity='1';showToast('✓ 2 sessions uploaded to Leexi');},3000);
+}
+
+function startLogoAnimation(){
+  var c=document.getElementById('logo-canvas');
+  if(!c)return;
+  if(window._logoAnimId)cancelAnimationFrame(window._logoAnimId);
+  c.width=392;c.height=96;
+  var ctx=c.getContext('2d');
+  var w=c.width,h=c.height;
+  var sz=14;
+  var cols=Math.floor(w/sz);
+  var drops=[];
+  for(var i=0;i<cols;i++)drops[i]=Math.random()*-8;
+  var chars='0123456789ABCDEF';
+  function draw(){
+    ctx.fillStyle='rgba(0,0,0,0.03)';
+    ctx.fillRect(0,0,w,h);
+    ctx.font='bold '+sz+'px Consolas,monospace';
+    for(var i=0;i<drops.length;i++){
+      var ch=chars[Math.floor(Math.random()*chars.length)];
+      var b=Math.random();
+      ctx.fillStyle=b>.3?'rgba(230,51,18,1)':'rgba(230,51,18,0.65)';
+      ctx.fillText(ch,i*sz,drops[i]*sz);
+      if(drops[i]*sz>h&&Math.random()>.93)drops[i]=0;
+      drops[i]+=0.04+Math.random()*0.04;
+    }
+    // PTV - large, no heavy backdrop
+    ctx.font='bold 38px Segoe UI,Arial,sans-serif';
+    ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=4;
+    ctx.fillStyle='#e63312';
+    ctx.fillText('PTV',12,40);
+    ctx.shadowBlur=0;
+    // Thin separator
+    ctx.fillStyle='rgba(230,51,18,0.5)';
+    ctx.fillRect(12,48,110,1);
+    // DISCOVERY TOOL
+    ctx.font='bold 16px Segoe UI,Arial,sans-serif';
+    ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=3;
+    ctx.fillStyle='rgba(255,255,255,0.95)';
+    ctx.fillText('DISCOVERY TOOL',12,66);
+    ctx.shadowBlur=0;
+    window._logoAnimId=requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+
+render();
+</script>
+</body>
+</html>

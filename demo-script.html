@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PTV Discovery Coach — Demo Script</title>
+<style>
+  @media print {
+    .no-print { display: none; }
+    body { margin: 0; }
+    .page-break { page-break-before: always; }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Arial, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 32px;
+    color: #1a1a2e;
+    line-height: 1.6;
+  }
+  .no-print {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 32px;
+    display: block;
+  }
+  .cover {
+    text-align: center;
+    padding: 60px 0 40px;
+    border-bottom: 3px solid #2563eb;
+    margin-bottom: 40px;
+  }
+  .cover .logo {
+    width: 56px;
+    height: 56px;
+    background: #2563eb;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 16px;
+  }
+  .cover h1 { font-size: 28px; margin: 8px 0 4px; color: #1e3a5f; }
+  .cover .subtitle { font-size: 16px; color: #64748b; margin: 0 0 8px; }
+  .cover .meta { font-size: 13px; color: #94a3b8; }
+  h2 { font-size: 18px; color: #1e3a5f; border-left: 4px solid #2563eb; padding-left: 12px; margin-top: 36px; }
+  h3 { font-size: 15px; color: #2563eb; margin-top: 24px; margin-bottom: 6px; }
+  .scene {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+  }
+  .scene .label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 6px;
+  }
+  .scene.action { border-left: 4px solid #2563eb; }
+  .scene.say { border-left: 4px solid #16a34a; }
+  .scene.show { border-left: 4px solid #d97706; }
+  .scene.tip { border-left: 4px solid #7c3aed; background: #faf5ff; }
+  .say-text { font-style: italic; color: #1e3a5f; font-size: 15px; }
+  .action-text { color: #374151; font-size: 14px; }
+  .tip-text { color: #5b21b6; font-size: 13px; }
+  .timing {
+    display: inline-block;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .section-intro {
+    background: #eff6ff;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #1e40af;
+    margin-bottom: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+  th { background: #1e3a5f; color: white; padding: 8px 12px; text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-orange { background: #ffedd5; color: #c2410c; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 4px; font-size: 14px; }
+  .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
+</style>
+</head>
+<body>
+
+<button class="no-print" onclick="window.print()">⬇ Save as PDF (File → Print → Save as PDF)</button>
+
+<!-- Cover -->
+<div class="cover">
+  <div class="logo">P</div>
+  <h1>PTV Discovery Coach</h1>
+  <p class="subtitle">AI-Powered Sales Discovery Assistant</p>
+  <p class="meta">Demo Script &nbsp;·&nbsp; Internal Use Only &nbsp;·&nbsp; PTV Logistics</p>
+</div>
+
+<!-- Overview -->
+<h2>What This App Does</h2>
+<p>PTV Discovery Coach is a private AI coaching tool that runs on a sales rep's phone or laptop during a live customer meeting. It listens to the conversation, guides the rep through a structured MEDDIC discovery framework, and generates a summary with action items when the call ends — all without the customer knowing it's running.</p>
+
+<table>
+  <tr><th>Capability</th><th>How It Works</th></tr>
+  <tr><td>Real-time coaching</td><td>Listens via microphone, transcribes speech, suggests next questions</td></tr>
+  <tr><td>MEDDIC tracking</td><td>Scores 12 discovery dimensions as the conversation progresses</td></tr>
+  <tr><td>AI question engine</td><td>Combines a curated question bank with GPT-4o generated follow-ups</td></tr>
+  <tr><td>Post-call summary</td><td>Auto-generates editable summary with action items and next steps</td></tr>
+  <tr><td>CRM export</td><td>One-tap export to Salesforce, Microsoft 365, email, or SMS</td></tr>
+  <tr><td>Contact profiles</td><td>Business card scanning, contact management, session attendance</td></tr>
+</table>
+
+<!-- Audience -->
+<h2>Who This Is For</h2>
+<ul>
+  <li><strong>Sales reps</strong> — use it during calls as a private coach</li>
+  <li><strong>Sales managers</strong> — review session history and coverage gaps across the team</li>
+  <li><strong>New reps</strong> — learn MEDDIC and value selling by doing, not by reading a manual</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- Demo Flow -->
+<h2>Demo Walkthrough <span class="timing">~12 minutes total</span></h2>
+
+<div class="section-intro">
+  Open <strong>demo.html</strong> in your browser before starting. The demo runs entirely offline — no login, no server needed.
+</div>
+
+<!-- Scene 1 -->
+<h3>Scene 1 — The Problem We're Solving <span class="timing">2 min</span></h3>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"Every sales rep has been in a discovery call where they walked out thinking they covered everything — and then realized they never found out who actually controls the budget, or what the customer's real timeline is. MEDDIC is the framework that fixes that. But most reps don't use it because it feels like a checklist, and customers can tell when you're reading from a script."</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"PTV Discovery Coach solves that. It's a private AI coach that runs on your phone during the call. The customer never sees it. The rep just has a natural conversation — and the app quietly tracks what's been covered, suggests the next question when the conversation stalls, and builds the summary automatically when the call ends."</div>
+</div>
+
+<!-- Scene 2 -->
+<h3>Scene 2 — Industry Selection &amp; Starting a Session <span class="timing">1.5 min</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Show the Live Session tab. Point to the account name "Acme Logistics GmbH" at the top. Click "Start Session".</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"Before the call starts, the rep selects the customer's industry segment. This is a one-tap choice — 3PL, Building Supply, Manufacturing, Food &amp; Beverage, and so on. This single selection tailors the entire session: the questions use industry-specific terminology, the coaching notes reference relevant benchmarks, and the AI generates follow-ups that sound like they come from someone who knows the business."</div>
+</div>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click one of the industry segment buttons (e.g., "Manufacturing &amp; Distribution"). Show the toast notification confirming the selection. The coaching panel opens.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"Everything from this point forward is filtered for that industry. If this is a building supply customer, the app won't suggest questions about cold chain compliance. If it's a food distributor, it will ask about comingling restrictions and temperature requirements. The rep doesn't have to think about this — the app handles it."</div>
+</div>
+
+<!-- Scene 3 -->
+<h3>Scene 3 — The Coaching Overlay <span class="timing">3 min</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Point to the suggested question card. Read the question aloud.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"The app suggests the next question based on what's been said so far. This one is targeting Goals — one of the 12 MEDDIC dimensions we track. The rep doesn't have to ask it word for word. They can rephrase it however feels natural. The app is judging the customer's answer, not the rep's exact wording."</div>
+</div>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Point to the intent score bar below the question.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"This is the intent score. It tells the rep whether the customer's answer actually covered what the question was trying to uncover. If the score hits 70 or above, the app considers that topic addressed and moves to the next question. If it's below 70, it suggests a follow-up probe."</div>
+</div>
+
+<div class="scene tip">
+  <div class="label">Tip</div>
+  <div class="tip-text">Point out the blue "💡 Why ask this" coaching note below the question. This is a key differentiator — it teaches reps why each question matters and what to listen for in the answer.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"Below every question is a coaching note — 'Why ask this.' It explains why the question matters and what to listen for in the customer's answer. For example, the Goals question note says: 'Listen for specific metrics, timelines, or strategic language — these become your proof points later.' This is how the app teaches MEDDIC and value selling in real time, during the actual call — not in a training session that gets forgotten."</div>
+</div>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click "Alternatives" to show the alternative questions panel.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"If the suggested question doesn't fit the flow of the conversation, the rep can tap Alternatives. These are generated by GPT-4o based on what the customer just said — so they're contextually tailored, not generic. The rep picks one, asks it naturally, and the cycle continues."</div>
+</div>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Point to the MEDDIC confidence meters. Watch them animate upward.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"Down here are the 12 MEDDIC coverage meters. They update in real time as the conversation progresses. Green means that area is fully covered. The rep can see at a glance which topics still need attention — without breaking the flow of the conversation to check a list."</div>
+</div>
+
+<div class="scene tip">
+  <div class="label">Tip</div>
+  <div class="tip-text">Point out that Economic Buyer and Champion are low — these are flagged as critical gaps. This is a natural segue to the gap recommendations feature.</div>
+</div>
+
+<!-- Scene 4 -->
+<h3>Scene 4 — Discreet Mode <span class="timing">30 sec</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click "Discreet Mode" in the top right.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"If the rep is in a face-to-face meeting and doesn't want the customer to see the screen, one tap collapses the entire UI to a single status bar. It shows just enough for the rep to know the session is running and which area has the lowest coverage. One tap again to restore the full view."</div>
+</div>
+
+<!-- Scene 5 -->
+<h3>Scene 5 — ROI Calculator <span class="timing">2 min</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click the "ROI Calculator" tab. Show the empty fields with yellow borders.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"The ROI Calculator is a dedicated tab that builds the financial business case as the conversation progresses. Every field starts yellow — meaning it's an estimate that needs to be validated. As the customer shares actual numbers — 'we run 150 trucks,' 'our cost per mile is about a dollar fifty' — the field turns green, meaning it's confirmed by the customer."</div>
+</div>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Type 150 in the Vehicles field. Show it turn green. Type 125 in the distance field. Type 1.50 in cost per mile. The ROI results appear.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"The calculator shows seven value streams — not just mileage savings. Distance reduction, planning labor, overtime, fuel, digital proof of delivery, credit reduction, and customer service call reduction. Each stream shows a green dot if the inputs are confirmed or a yellow dot if they're still estimates. At the bottom you see the total annual savings, ROI percentage, and payback period in months."</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"In the real app, the AI listens to the conversation and auto-populates these fields as the customer mentions numbers. The rep doesn't have to switch tabs and type — it happens automatically. But the rep can always override or correct a value. The green/yellow system means you always know which numbers came from the customer and which are PTV benchmarks that still need validation."</div>
+</div>
+
+<div class="scene tip">
+  <div class="label">Tip</div>
+  <div class="tip-text">Show the miles/km toggle and the 8%/10%/15% savings scenario buttons. Point out that the calculator supports global use — miles or kilometers, multiple currencies.</div>
+</div>
+
+<!-- Scene 6 -->
+<h3>Scene 6 — Starring a Question <span class="timing">30 sec</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click the star icon on the question card. Show the toast notification.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"When a question lands well — the customer opens up, the conversation flows — the rep can star it. Over time, the app learns which questions work for each individual rep and surfaces similar ones more prominently. It adapts to their natural selling style."</div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- Scene 6 -->
+<h3>Scene 6 — Ending the Session and the Summary <span class="timing">2 min</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click "End" on the recording indicator. The post-session summary appears.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"When the call ends, the app generates a summary automatically — usually within about 8 seconds. It pulls the key findings from each MEDDIC area, identifies action items, and recommends next steps. The rep can edit it directly in the app."</div>
+</div>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Point to the export buttons — Salesforce, Microsoft 365, Email, SMS.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"From here, the rep can push the summary directly to Salesforce or Microsoft 365 — it maps to the standard CRM fields automatically. Or they can send it via email or SMS to the customer or their manager right from the app. No copy-pasting, no switching between tools."</div>
+</div>
+
+<!-- Scene 7 -->
+<h3>Scene 7 — Account History and Gap Recommendations <span class="timing">1 min</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click the Account tab. Show the gap badges at the top.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"The Account view shows the full history of every call with this customer. The red badges at the top are critical gaps — areas that haven't been covered across any of the calls. Economic Buyer and Champion are flagged as critical because without those, deals stall."</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"The app also recommends who should be on the next call. If the IT architecture hasn't been discussed, it suggests bringing in the IT Architect. If the economic buyer hasn't been identified, it flags that the Supply Chain VP or COO should be in the room."</div>
+</div>
+
+<!-- Scene 8 -->
+<h3>Scene 8 — Contacts and Business Card Scanning <span class="timing">1 min</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click the Contacts tab. Show the contacts grouped by buyer persona.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"Every person involved in the deal has a contact profile — name, title, email, phone, LinkedIn. They're grouped by buyer persona so the rep can see at a glance who they've met and what role each person plays in the decision."</div>
+</div>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Point to the business card scanner section at the bottom.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"When someone hands the rep a business card, they can scan it with the camera. The app reads the card using OCR and auto-populates the contact form — name, title, email, phone, address. The rep confirms and saves. When the account is exported to Salesforce, all the contacts go with it and it deduplicates on email address so there are no duplicate records."</div>
+</div>
+
+<!-- Scene 9 -->
+<h3>Scene 10 — Admin: Question Bank &amp; Segment Browser <span class="timing">1.5 min</span></h3>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click the Admin tab. Show the segment filter tabs at the top: "All Segments (27)", "Universal", "Mfg &amp; Distribution", "Building Supply".</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"Admins can browse the entire question bank, filtered by industry segment. Click 'Manufacturing &amp; Distribution' and you see only the questions tagged for that segment — grouped by MEDDIC element, each with its coaching note and buyer persona. Click 'Universal' to see the questions that apply to every industry."</div>
+</div>
+
+<div class="scene action">
+  <div class="label">Action</div>
+  <div class="action-text">Click "Manufacturing &amp; Distribution" filter. Show the filtered questions with coaching notes visible. Then click "All Segments" to show everything.</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"Each question shows the coaching note — the blue '💡 Why ask this' callout — so admins can review not just the question but the reasoning behind it. Questions can be edited, deactivated, or removed. New questions can be added individually or uploaded in bulk via CSV."</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"We've pre-loaded over 200 questions across all 12 MEDDIC dimensions, with industry-specific sets for Manufacturing &amp; Distribution and Building Supply built from real discovery templates. As the team discovers questions that work well in other segments — 3PL, Food &amp; Beverage, Field Services — they get added here and immediately become available to every rep."</div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- Closing -->
+<h2>Closing the Demo</h2>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"What you've seen today is the UI prototype. The full app — with live transcription, real AI analysis, and CRM integration — is in active development. The goal is to give every PTV sales rep the equivalent of a senior sales coach sitting next to them on every call, without the customer ever knowing it's there."</div>
+</div>
+
+<div class="scene say">
+  <div class="label">Say</div>
+  <div class="say-text">"The app runs on any phone or laptop — no installation required for the web version. We're also building a Windows desktop app for reps who prefer that. And everything syncs to a central server so managers have full visibility across the team."</div>
+</div>
+
+<h3>Suggested Questions to Invite</h3>
+<ul>
+  <li>What does your current discovery process look like, and where do you see the biggest gaps?</li>
+  <li>Which MEDDIC elements do your reps struggle with most?</li>
+  <li>How are you currently capturing and sharing discovery insights after calls?</li>
+  <li>What would it mean for your close rate if every rep consistently covered all 12 areas?</li>
+</ul>
+
+<!-- Feature Summary -->
+<h2>Feature Summary</h2>
+
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Notes</th></tr>
+  <tr><td>Real-time transcription</td><td><span class="badge badge-blue">In Development</span></td><td>Whisper WASM, browser-native</td></tr>
+  <tr><td>MEDDIC confidence meters</td><td><span class="badge badge-blue">In Development</span></td><td>12 dimensions, GPT-4o scoring</td></tr>
+  <tr><td>Question bank (200+ questions)</td><td><span class="badge badge-green">Ready</span></td><td>CSV upload, 3 industry segments</td></tr>
+  <tr><td>Industry segment selection</td><td><span class="badge badge-green">Ready</span></td><td>8 segments, filters questions &amp; terminology</td></tr>
+  <tr><td>Coaching notes ("Why ask this")</td><td><span class="badge badge-green">Ready</span></td><td>Per-question coaching context for reps</td></tr>
+  <tr><td>ROI Calculator (7 value streams)</td><td><span class="badge badge-green">Ready</span></td><td>Green/yellow field validation, miles/km, multi-currency</td></tr>
+  <tr><td>Admin segment browser</td><td><span class="badge badge-green">Ready</span></td><td>Filter questions by industry, review coaching notes</td></tr>
+  <tr><td>Dynamic AI follow-ups</td><td><span class="badge badge-blue">In Development</span></td><td>GPT-4o generated, context-aware</td></tr>
+  <tr><td>Question favoriting</td><td><span class="badge badge-blue">In Development</span></td><td>Per-rep personalization</td></tr>
+  <tr><td>Post-session summary</td><td><span class="badge badge-blue">In Development</span></td><td>AI-generated, editable</td></tr>
+  <tr><td>Salesforce export</td><td><span class="badge badge-blue">In Development</span></td><td>REST API, contact deduplication</td></tr>
+  <tr><td>Microsoft 365 export</td><td><span class="badge badge-blue">In Development</span></td><td>Graph API, OneNote + contacts</td></tr>
+  <tr><td>SMS / Email export</td><td><span class="badge badge-blue">In Development</span></td><td>Web Share API / mailto</td></tr>
+  <tr><td>Business card OCR</td><td><span class="badge badge-blue">In Development</span></td><td>Tesseract.js, camera or upload</td></tr>
+  <tr><td>Contact profiles</td><td><span class="badge badge-blue">In Development</span></td><td>CRM field mapping</td></tr>
+  <tr><td>Offline recovery</td><td><span class="badge badge-blue">In Development</span></td><td>Upload audio for post-processing</td></tr>
+  <tr><td>Windows desktop app</td><td><span class="badge badge-orange">Planned</span></td><td>Electron, single .exe installer</td></tr>
+  <tr><td>Manager dashboard</td><td><span class="badge badge-blue">In Development</span></td><td>Team-wide account visibility</td></tr>
+  <tr><td>Discreet mode</td><td><span class="badge badge-green">Ready</span></td><td>Single-tap UI collapse</td></tr>
+</table>
+
+<div class="footer">
+  PTV Discovery Coach &nbsp;·&nbsp; Internal Demo Script &nbsp;·&nbsp; Confidential
+</div>
+
+</body>
+</html>

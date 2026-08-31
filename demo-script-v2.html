@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PTV Discovery Coach - Demo Script v2</title>
+<style>
+  @media print { .no-print{display:none} body{margin:0} .page-break{page-break-before:always} }
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 32px;color:#1a1a2e;line-height:1.6}
+  .no-print{background:#2563eb;color:white;border:none;padding:10px 24px;border-radius:6px;font-size:14px;cursor:pointer;margin-bottom:32px;display:block}
+  .cover{text-align:center;padding:60px 0 40px;border-bottom:3px solid #2563eb;margin-bottom:40px}
+  .cover .logo{width:56px;height:56px;background:#2563eb;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:24px;font-weight:bold;margin-bottom:16px}
+  .cover h1{font-size:28px;margin:8px 0 4px;color:#1e3a5f}
+  .cover .subtitle{font-size:16px;color:#64748b;margin:0 0 8px}
+  .cover .meta{font-size:13px;color:#94a3b8}
+  h2{font-size:18px;color:#1e3a5f;border-left:4px solid #2563eb;padding-left:12px;margin-top:36px}
+  h3{font-size:15px;color:#2563eb;margin-top:24px;margin-bottom:6px}
+  .scene{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;margin:12px 0}
+  .scene .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:6px}
+  .scene.action{border-left:4px solid #2563eb} .scene.say{border-left:4px solid #16a34a}
+  .scene.tip{border-left:4px solid #7c3aed;background:#faf5ff} .scene.new{border-left:4px solid #dc2626;background:#fef2f2}
+  .say-text{font-style:italic;color:#1e3a5f;font-size:15px} .action-text{color:#374151;font-size:14px}
+  .tip-text{color:#5b21b6;font-size:13px} .new-text{color:#991b1b;font-size:13px;font-weight:500}
+  .timing{display:inline-block;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;margin-left:8px}
+  .new-badge{display:inline-block;background:#fee2e2;color:#dc2626;font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;margin-left:8px}
+  .section-intro{background:#eff6ff;border-radius:8px;padding:12px 16px;font-size:14px;color:#1e40af;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+  th{background:#1e3a5f;color:white;padding:8px 12px;text-align:left} td{padding:8px 12px;border-bottom:1px solid #e2e8f0}
+  tr:nth-child(even) td{background:#f8fafc}
+  .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+  .badge-green{background:#dcfce7;color:#15803d} .badge-blue{background:#dbeafe;color:#1d4ed8} .badge-orange{background:#ffedd5;color:#c2410c}
+  ul{padding-left:20px} li{margin-bottom:4px;font-size:14px}
+  .footer{margin-top:60px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}
+</style>
+</head>
+<body>
+<button class="no-print" onclick="window.print()">Print / Save as PDF</button>
+<div class="cover"><div class="logo">P</div><h1>PTV Discovery Coach</h1><p class="subtitle">AI-Powered Sales Discovery Assistant</p><p class="meta">Demo Script v2 - Internal Use Only - PTV Logistics - April 2026</p></div>
+
+<h2>Demo Walkthrough <span class="timing">~17 minutes total</span></h2>
+<div class="section-intro">Open <strong>demo-v2.html</strong> in your browser. No login, no server, works offline.</div>
+
+<h3>Scene 1 - The Problem <span class="timing">2 min</span></h3>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"Every sales rep has been in a discovery call where they walked out thinking they covered everything - and then realized they never found out who controls the budget. MEDDIC fixes that, but most reps don't use it because it feels like a checklist."</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"PTV Discovery Coach solves that. It's a private AI coach that runs during the call. The customer never sees it. The rep has a natural conversation and the app tracks coverage, suggests questions, summarizes each answer in real time, and builds the report when the call ends."</div></div>
+
+<h3>Scene 2 - Business Card Scan <span class="timing">2 min</span> <span class="new-badge">NEW</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click "+ New Account". Click "Scan Business Card". Watch the Matrix-style animation.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"The OCR reads the card and auto-fills every field. It analyzes the title and auto-detects the persona tier and MEDDIC deal role. Select an industry segment and click Create and Start Session."</div></div>
+
+<h3>Scene 3 - GDPR Consent Gate <span class="timing">1 min</span> <span class="new-badge">NEW</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">GDPR consent screen appears. Point out the Start Session button is hidden - user MUST go through consent.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"Before any recording starts, the app requires explicit consent. This is a hard gate. The buttons start red and turn green when clicked - clear visual feedback that consent has been logged."</div></div>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click the consent button. Watch it turn green. Session starts automatically.</div></div>
+
+<h3>Scene 4 - Live Coaching and AI Answer Summaries <span class="timing">3 min</span> <span class="new-badge">NEW</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Point to the suggested question, MEDDIC badge, intent score, and "Why ask this" coaching note.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"The app suggests the next question targeting a specific MEDDIC dimension. The intent score tells the rep whether the customer's answer actually covered what the question was trying to uncover."</div></div>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click "Accept". The AI Answer Summary panel appears.</div></div>
+<div class="scene new"><div class="label">NEW FEATURE</div><div class="new-text">This is the AI Answer Summary - the game-changer. After each question, the AI summarizes what the customer said before moving on.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"After the customer answers, the AI pauses and shows a summary of what was captured. The rep reviews it in real time. If the AI missed something, the rep knows immediately. You also see the score delta: '+12 Goals'. Click Continue to Next Question and the cycle repeats."</div></div>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click "Continue to Next Question". Accept 2-3 more to show the cycle. Point to MEDDIC meters updating.</div></div>
+
+<h3>Scene 5 - Session End and KPI Scorecard <span class="timing">2 min</span> <span class="new-badge">NEW</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click "End". Session complete screen appears with MEDDIC scorecard.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"The rep gets a full MEDDIC scorecard - every dimension with its score, progress bar, and delta. First call shows 'baseline'. Follow-up calls show green +12, +8 for improvements and red -3 for regression. The app flags weak areas for the next call."</div></div>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Scroll to the glowing "What's Next?" panel. Click "Build ROI Calculator".</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"The What's Next panel gives four clear next steps. The rep always knows the next move. Each button navigates directly to that section."</div></div>
+
+<div class="page-break"></div>
+
+<h3>Scene 6 - ROI Calculator <span class="timing">2 min</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Type values: 150 vehicles, 125 miles, $1.50/mile. Watch results calculate.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"Seven value streams, not just mileage. Fields start yellow (estimate) and turn green when confirmed by the customer. The AI auto-populates as the customer mentions numbers."</div></div>
+
+<h3>Scene 7 - Account Overview and Deal Map <span class="timing">1.5 min</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click "Back to Account History", select Acme Logistics. Show the Deal Map and session history with KPI deltas.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"The Deal Map shows stakeholder coverage and multi-threading score. Session cards show MEDDIC deltas per call - green for gains, red for regression. This is how managers track deal health without sitting in on every call."</div></div>
+
+<h3>Scene 8 - Leexi Audio Sync <span class="timing">1.5 min</span> <span class="new-badge">NEW</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">On the Account Overview, point to the "Leexi Audio Sync" card with the purple Pull and green Push buttons.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"Leexi integration lives right in the account. Two buttons, two directions. Pull brings call transcripts from Leexi for MEDDIC analysis. Push sends session recordings to Leexi for AI transcription and archival."</div></div>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click "Pull from Leexi". Show the call list. Click Import on a call. Then close and click "Push to Leexi". Click "Push All Pending".</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"Every call ends up in both systems - no data silos. Reps who already use Leexi don't change their workflow. They record in Leexi, we pull the transcript. Reps using our built-in recording can push to Leexi for archival."</div></div>
+
+<h3>Scene 9 - Navigation <span class="timing">30 sec</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click between sections. Point to "Back to Account History" on each page.</div></div>
+
+<h3>Scene 10 - Admin: Question Bank <span class="timing">1 min</span></h3>
+<div class="scene action"><div class="label">Action</div><div class="action-text">Click Admin. Show segment filter and question bank with coaching notes.</div></div>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"200+ questions across 12 MEDDIC dimensions with industry-specific sets. CSV upload. Each question has a coaching note explaining why it matters."</div></div>
+
+<div class="page-break"></div>
+
+<h2>Closing</h2>
+<div class="scene say"><div class="label">Say</div><div class="say-text">"What you've seen is the working prototype with all core workflows functional. The AI answer summaries, GDPR consent gate, session scorecards, What's Next guidance, and bidirectional Leexi sync are all new. The full app with live transcription and CRM integration is in active development."</div></div>
+
+<h3>Key Differentiators</h3>
+<ul>
+  <li>AI answer summaries after every question</li>
+  <li>GDPR consent gate - recording blocked until confirmed</li>
+  <li>Session-end KPI scorecard with improvement tracking</li>
+  <li>"What's Next" action panel</li>
+  <li>Matrix-style business card scanner with auto persona detection</li>
+  <li>Bidirectional Leexi sync - Pull transcripts in, Push recordings out</li>
+  <li>Deal map with multi-threading score</li>
+  <li>Industry-specific question tailoring</li>
+</ul>
+
+<h2>Feature Summary</h2>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Notes</th></tr>
+  <tr><td>Business card OCR + Matrix animation</td><td><span class="badge badge-green">Demo Ready</span></td><td>Auto-fills contact, detects persona + deal role</td></tr>
+  <tr><td>GDPR consent gate</td><td><span class="badge badge-green">Demo Ready</span></td><td>Hard gate, red/green buttons, suggested script</td></tr>
+  <tr><td>AI answer summaries</td><td><span class="badge badge-green">Demo Ready</span></td><td>Per-question summary with score delta</td></tr>
+  <tr><td>Session-end KPI scorecard</td><td><span class="badge badge-green">Demo Ready</span></td><td>All MEDDIC scores + deltas + needs attention</td></tr>
+  <tr><td>"What's Next" action panel</td><td><span class="badge badge-green">Demo Ready</span></td><td>Post-session navigation with glowing CTA</td></tr>
+  <tr><td>Leexi Pull (import transcripts)</td><td><span class="badge badge-green">Demo Ready</span></td><td>Browse calls, import with one click</td></tr>
+  <tr><td>Leexi Push (upload audio)</td><td><span class="badge badge-green">Demo Ready</span></td><td>Send recordings to Leexi for transcription</td></tr>
+  <tr><td>Deal map + multi-threading</td><td><span class="badge badge-green">Demo Ready</span></td><td>Stakeholder coverage visualization</td></tr>
+  <tr><td>Session KPI deltas</td><td><span class="badge badge-green">Demo Ready</span></td><td>+/- scores per dimension per session</td></tr>
+  <tr><td>ROI Calculator (7 streams)</td><td><span class="badge badge-green">Demo Ready</span></td><td>Green/yellow validation, miles/km</td></tr>
+  <tr><td>Question bank (200+)</td><td><span class="badge badge-green">Demo Ready</span></td><td>CSV upload, 3+ industry segments</td></tr>
+  <tr><td>Real-time transcription</td><td><span class="badge badge-blue">In Development</span></td><td>Whisper WASM, browser-native</td></tr>
+  <tr><td>Salesforce / M365 export</td><td><span class="badge badge-blue">In Development</span></td><td>REST API + Graph API</td></tr>
+  <tr><td>Windows desktop app</td><td><span class="badge badge-orange">Planned</span></td><td>Electron, single .exe installer</td></tr>
+</table>
+
+<div class="footer">PTV Discovery Coach - Demo Script v2 - Confidential - April 2026</div>
+</body>
+</html>

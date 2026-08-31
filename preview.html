@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PTV Discovery Coach — Brand Preview</title>
+<style>
+:root {
+  --ptv-red: #E31E24; --ptv-red-dark: #C4161C; --ptv-orange: #F26522;
+  --ptv-pink: #C2185B; --ptv-purple: #7B1FA2;
+  --ptv-bg: #f5f5f5; --ptv-surface: #ffffff; --ptv-surface2: #f2f2f2;
+  --ptv-border: #e0e0e0; --ptv-text: #1a1a1a; --ptv-text2: #333333; --ptv-text3: #666666;
+  --ptv-gradient: linear-gradient(135deg, #F26522 0%, #E31E24 35%, #C2185B 65%, #7B1FA2 100%);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 14px; background: var(--ptv-bg); color: var(--ptv-text); }
+
+/* nav tabs */
+.demo-tabs { display: flex; gap: 8px; padding: 16px 24px 0; background: #e8e8e8; border-bottom: 2px solid var(--ptv-border); }
+.demo-tab { padding: 8px 18px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 12px;
+  font-weight: 600; border: 1px solid var(--ptv-border); border-bottom: none; background: var(--ptv-surface2); color: var(--ptv-text3); }
+.demo-tab.active { background: var(--ptv-surface); color: var(--ptv-red); }
+.demo-screen { display: none; } .demo-screen.active { display: flex; }
+
+/* ── shared ── */
+.ptv-header { background: var(--ptv-gradient); padding: 1.25rem 1.5rem; color: #fff; display: flex; align-items: center; gap: 1rem; }
+.ptv-header-logo { background: rgba(0,0,0,.25); padding: .35rem .75rem; border-radius: 6px; font-weight: 700; font-size: .85rem; letter-spacing: .03em; color: #fff; }
+.ptv-header-title { font-size: 1.3rem; font-weight: 700; color: #fff; line-height: 1.2; }
+.ptv-header-sub { font-size: .8rem; color: rgba(255,255,255,.85); }
+.ptv-card { background: var(--ptv-surface); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+  border: 1px solid var(--ptv-border); border-bottom: 4px solid var(--ptv-red); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.ptv-metric-card { background: var(--ptv-surface); border-radius: 12px; padding: 1rem 1.25rem; text-align: center;
+  border: 1px solid var(--ptv-border); border-top: 4px solid var(--ptv-red); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.ptv-metric-value { font-size: 1.75rem; font-weight: 700; color: var(--ptv-text); margin: .25rem 0; }
+.ptv-metric-label { font-size: .72rem; color: var(--ptv-text3); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+.ptv-divider { width: 48px; height: 3px; background: var(--ptv-gradient); border: none; border-radius: 2px; margin: .5rem 0 1rem; }
+.btn-primary { background: var(--ptv-red); color: #fff; border: none; border-radius: 6px; padding: .5rem 1.25rem;
+  font-size: .875rem; font-weight: 600; cursor: pointer; }
+.btn-primary:hover { background: var(--ptv-red-dark); }
+.btn-secondary { background: #fff; color: var(--ptv-red); border: 2px solid var(--ptv-red); border-radius: 6px;
+  padding: .45rem 1.2rem; font-size: .875rem; font-weight: 600; cursor: pointer; }
+.btn-ghost { background: none; color: var(--ptv-text3); border: 1px solid var(--ptv-border); border-radius: 6px;
+  padding: .45rem 1rem; font-size: .875rem; cursor: pointer; }
+.ptv-input { width: 100%; background: var(--ptv-surface); border: 1px solid var(--ptv-border);
+  border-radius: 8px; padding: .55rem .75rem; font-size: .875rem; color: var(--ptv-text); outline: none; }
+.ptv-input:focus { border-color: var(--ptv-red); box-shadow: 0 0 0 3px rgba(227,30,36,.1); }
+.ptv-badge { display: inline-block; padding: .15rem .55rem; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+.ptv-badge-red    { background: #fef2f2; color: var(--ptv-red); }
+.ptv-badge-green  { background: #f0fdf4; color: #16a34a; }
+.ptv-badge-orange { background: #fff7ed; color: #c2410c; }
+.ptv-badge-gray   { background: var(--ptv-surface2); color: var(--ptv-text3); }
+.score-bar-track { background: var(--ptv-surface2); border-radius: 4px; height: 8px; overflow: hidden; }
+.score-bar-fill  { height: 100%; border-radius: 4px; background: var(--ptv-gradient); }
+.ptv-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.ptv-table th { text-align: left; padding: .6rem .75rem; font-size: .72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--ptv-text3); border-bottom: 2px solid var(--ptv-border); }
+.ptv-table td { padding: .65rem .75rem; border-bottom: 1px solid var(--ptv-border); color: var(--ptv-text2); }
+.ptv-table tr:hover td { background: #fafafa; }
+
+/* sidebar */
+.sidebar { width: 220px; background: var(--ptv-surface); border-right: 1px solid var(--ptv-border);
+  display: flex; flex-direction: column; height: 100%; flex-shrink: 0; }
+.sidebar-brand { background: var(--ptv-gradient); padding: 14px 16px; }
+.nav-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+  font-size: 13px; color: var(--ptv-text2); background: transparent; border: none;
+  border-left: 3px solid transparent; cursor: pointer; text-align: left; font-weight: 400; }
+.nav-item.active { color: var(--ptv-red); background: #fef2f2; border-left: 3px solid var(--ptv-red); font-weight: 600; }
+.nav-section-label { padding: 12px 16px 4px; font-size: 10px; font-weight: 700; color: var(--ptv-text3);
+  text-transform: uppercase; letter-spacing: .05em; }
+.user-footer { padding: 12px 16px; border-top: 1px solid var(--ptv-border); display: flex; align-items: center; gap: 8px; }
+.user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--ptv-gradient);
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+
+/* layout */
+.app-frame { display: flex; height: 560px; background: var(--ptv-bg); overflow: hidden; border: 1px solid var(--ptv-border); border-radius: 0 0 12px 12px; }
+.main-area { flex: 1; overflow-y: auto; padding: 20px; }
+.login-frame { height: 560px; display: flex; align-items: center; justify-content: center; background: var(--ptv-bg); border-radius: 0 0 12px 12px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.page-title { font-size: 1.2rem; font-weight: 700; color: var(--ptv-text); margin-bottom: 4px; }
+.page-sub { font-size: .8rem; color: var(--ptv-text3); margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div class="demo-tabs">
+  <div class="demo-tab active" onclick="show('login')">Login</div>
+  <div class="demo-tab" onclick="show('accounts')">Accounts</div>
+  <div class="demo-tab" onclick="show('overview')">Account Overview</div>
+  <div class="demo-tab" onclick="show('session')">Live Session</div>
+  <div class="demo-tab" onclick="show('admin')">Admin</div>
+</div>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="screen-login" class="demo-screen active">
+  <div class="login-frame">
+    <div style="width:100%;max-width:400px;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">
+      <div class="ptv-header" style="justify-content:center;flex-direction:column;text-align:center;padding:1.75rem 2rem">
+        <div class="ptv-header-logo" style="margin-bottom:.75rem">PTV Logistics</div>
+        <div class="ptv-header-title" style="font-size:1.4rem">Discovery Coach</div>
+        <div class="ptv-header-sub">Sign in to continue</div>
+      </div>
+      <div style="background:#fff;padding:32px">
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:var(--ptv-text3);display:block;margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em">Email</label>
+          <input class="ptv-input" type="email" placeholder="you@ptvlogistics.com" value="joseph.phillips@ptvlogistics.com"/>
+        </div>
+        <div style="margin-bottom:20px">
+          <label style="font-size:11px;color:var(--ptv-text3);display:block;margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em">Password</label>
+          <input class="ptv-input" type="password" placeholder="••••••••" value="••••••••"/>
+        </div>
+        <button class="btn-primary" style="width:100%;padding:11px 0;font-size:14px">Sign In</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ACCOUNTS ═══════════════ -->
+<div id="screen-accounts" class="demo-screen">
+  <div class="app-frame">
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:rgba(0,0,0,.25);border-radius:4px;padding:3px 7px;font-size:12px;font-weight:700;color:#fff">PTV</div>
+          <div style="line-height:1.2"><div style="font-size:13px;font-weight:700;color:#fff">Discovery Coach</div><div style="font-size:10px;color:rgba(255,255,255,.8)">PTV Logistics</div></div>
+        </div>
+      </div>
+      <nav style="flex:1;padding:8px 0">
+        <button class="nav-item active">📋 <span>Accounts</span></button>
+        <div class="nav-section-label">Tools</div>
+        <button class="nav-item">📈 <span>Manager Dashboard</span></button>
+        <button class="nav-item">⚙️ <span>Admin</span></button>
+      </nav>
+      <div class="user-footer">
+        <div class="user-avatar">JP</div>
+        <div style="flex:1"><div style="font-size:12px;font-weight:500">Joseph Phillips</div><div style="font-size:10px;color:var(--ptv-text3)">Admin</div></div>
+        <button style="background:none;border:none;color:var(--ptv-text3);font-size:14px;cursor:pointer">⏻</button>
+      </div>
+    </div>
+    <div class="main-area">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div><div class="page-title">Accounts</div><div class="page-sub">3 accounts · 4 sessions this month</div></div>
+        <button class="btn-primary">+ New Account</button>
+      </div>
+      <div class="grid-3" style="margin-bottom:16px">
+        <div class="ptv-metric-card"><div class="ptv-metric-label">Active Accounts</div><div class="ptv-metric-value">3</div></div>
+        <div class="ptv-metric-card"><div class="ptv-metric-label">Sessions This Month</div><div class="ptv-metric-value">4</div></div>
+        <div class="ptv-metric-card"><div class="ptv-metric-label">Avg MEDDIC Score</div><div class="ptv-metric-value">58%</div></div>
+      </div>
+      <table class="ptv-table">
+        <thead><tr><th>Account</th><th>Industry</th><th>Sessions</th><th>Last Call</th><th>MEDDIC Health</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Acme Logistics GmbH</strong></td>
+            <td><span class="ptv-badge ptv-badge-gray">Mfg &amp; Distribution</span></td>
+            <td>3</td><td>Apr 4, 2026</td>
+            <td><div style="display:flex;align-items:center;gap:6px"><div class="score-bar-track" style="width:80px"><div class="score-bar-fill" style="width:68%"></div></div><span style="font-size:11px;color:var(--ptv-text3)">68%</span></div></td>
+            <td><button class="btn-ghost" style="padding:4px 10px;font-size:12px">Open →</button></td>
+          </tr>
+          <tr>
+            <td><strong>Weber Spedition AG</strong></td>
+            <td><span class="ptv-badge ptv-badge-gray">Building Supply</span></td>
+            <td>1</td><td>Mar 28, 2026</td>
+            <td><div style="display:flex;align-items:center;gap:6px"><div class="score-bar-track" style="width:80px"><div class="score-bar-fill" style="width:30%"></div></div><span style="font-size:11px;color:var(--ptv-text3)">30%</span></div></td>
+            <td><button class="btn-ghost" style="padding:4px 10px;font-size:12px">Open →</button></td>
+          </tr>
+          <tr>
+            <td><strong>Schmidt Cold Chain</strong></td>
+            <td><span class="ptv-badge ptv-badge-gray">Food &amp; Bev</span></td>
+            <td>0</td><td>—</td>
+            <td><div style="display:flex;align-items:center;gap:6px"><div class="score-bar-track" style="width:80px"><div class="score-bar-fill" style="width:0%"></div></div><span style="font-size:11px;color:var(--ptv-text3)">0%</span></div></td>
+            <td><button class="btn-ghost" style="padding:4px 10px;font-size:12px">Open →</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ OVERVIEW ═══════════════ -->
+<div id="screen-overview" class="demo-screen">
+  <div class="app-frame">
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:rgba(0,0,0,.25);border-radius:4px;padding:3px 7px;font-size:12px;font-weight:700;color:#fff">PTV</div>
+          <div style="line-height:1.2"><div style="font-size:13px;font-weight:700;color:#fff">Discovery Coach</div><div style="font-size:10px;color:rgba(255,255,255,.8)">PTV Logistics</div></div>
+        </div>
+      </div>
+      <nav style="flex:1;padding:8px 0">
+        <button style="width:100%;padding:7px 16px;font-size:11px;color:var(--ptv-text3);background:none;border:none;border-bottom:1px solid var(--ptv-border);text-align:left;cursor:pointer;margin-bottom:6px">← Back to Accounts</button>
+        <div style="padding:4px 16px;font-size:12px;font-weight:600;color:var(--ptv-text);margin-bottom:4px">Acme Logistics GmbH</div>
+        <button class="nav-item active">📁 <span>Overview</span></button>
+        <button class="nav-item">🎙 <span>Live Session</span></button>
+        <button class="nav-item">📊 <span>ROI Calculator</span></button>
+        <button class="nav-item">🔗 <span>Leexi Import</span></button>
+        <button class="nav-item">👥 <span>Contacts</span></button>
+        <button class="nav-item">📜 <span>Session History</span></button>
+        <div class="nav-section-label">Tools</div>
+        <button class="nav-item">📈 <span>Manager Dashboard</span></button>
+        <button class="nav-item">⚙️ <span>Admin</span></button>
+      </nav>
+      <div class="user-footer">
+        <div class="user-avatar">JP</div>
+        <div style="flex:1"><div style="font-size:12px;font-weight:500">Joseph Phillips</div><div style="font-size:10px;color:var(--ptv-text3)">Admin</div></div>
+      </div>
+    </div>
+    <div class="main-area">
+      <div class="page-title">Acme Logistics GmbH</div>
+      <div class="page-sub">Mfg &amp; Distribution · 3 sessions · Last call Apr 4, 2026</div>
+      <div class="grid-4" style="margin-bottom:16px">
+        <div class="ptv-metric-card"><div class="ptv-metric-label">Sessions</div><div class="ptv-metric-value">3</div></div>
+        <div class="ptv-metric-card"><div class="ptv-metric-label">Avg Score</div><div class="ptv-metric-value" style="color:var(--ptv-orange)">62%</div></div>
+        <div class="ptv-metric-card"><div class="ptv-metric-label">Contacts</div><div class="ptv-metric-value">2</div></div>
+        <div class="ptv-metric-card"><div class="ptv-metric-label">Gaps</div><div class="ptv-metric-value" style="color:var(--ptv-red)">2</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="ptv-card">
+          <div style="font-weight:600;font-size:.95rem;margin-bottom:4px">MEDDIC Coverage</div>
+          <hr class="ptv-divider"/>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:110px;font-size:12px;color:var(--ptv-text2)">Goals</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:85%"></div></div><span style="font-size:11px;color:var(--ptv-text3);width:28px;text-align:right">85</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:110px;font-size:12px;color:var(--ptv-text2)">Metrics</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:72%"></div></div><span style="font-size:11px;color:var(--ptv-text3);width:28px;text-align:right">72</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:110px;font-size:12px;color:var(--ptv-text2)">Identify Pain</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:81%"></div></div><span style="font-size:11px;color:var(--ptv-text3);width:28px;text-align:right">81</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:110px;font-size:12px;color:var(--ptv-text2)">Decision Process</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:51%"></div></div><span style="font-size:11px;color:var(--ptv-text3);width:28px;text-align:right">51</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:110px;font-size:12px;color:var(--ptv-red)">Economic Buyer</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:38%"></div></div><span style="font-size:11px;color:var(--ptv-red);width:28px;text-align:right">38</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:110px;font-size:12px;color:var(--ptv-red)">Champion</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:42%"></div></div><span style="font-size:11px;color:var(--ptv-red);width:28px;text-align:right">42</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="ptv-card" style="margin-bottom:10px">
+            <div style="font-weight:600;font-size:.95rem;margin-bottom:4px">Gap Alerts</div>
+            <hr class="ptv-divider"/>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px;background:#fef2f2;border-radius:8px;border-left:3px solid var(--ptv-red)">
+                <span style="font-size:16px">⚠️</span><div><div style="font-size:12px;font-weight:600;color:var(--ptv-red)">Economic Buyer — 38</div><div style="font-size:11px;color:var(--ptv-text3)">Target: Supply Chain VP, Logistics Director</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px;background:#fef2f2;border-radius:8px;border-left:3px solid var(--ptv-red)">
+                <span style="font-size:16px">⚠️</span><div><div style="font-size:12px;font-weight:600;color:var(--ptv-red)">Champion — 42</div><div style="font-size:11px;color:var(--ptv-text3)">Target: Fleet Manager, Logistics Director</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="ptv-card">
+            <div style="font-weight:600;font-size:.95rem;margin-bottom:4px">Key Contacts</div>
+            <hr class="ptv-divider"/>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:50%;background:var(--ptv-gradient);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">KE</div><div><div style="font-size:12px;font-weight:500">Dr. Katharina Engel</div><div style="font-size:11px;color:var(--ptv-text3)">COO Logistics · <span class="ptv-badge ptv-badge-red">Economic Buyer</span></div></div></div>
+              <div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:50%;background:var(--ptv-gradient);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">TW</div><div><div style="font-size:12px;font-weight:500">Thomas Weber</div><div style="font-size:11px;color:var(--ptv-text3)">VP Supply Chain · <span class="ptv-badge ptv-badge-green">Champion</span></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SESSION ═══════════════ -->
+<div id="screen-session" class="demo-screen">
+  <div class="app-frame">
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:rgba(0,0,0,.25);border-radius:4px;padding:3px 7px;font-size:12px;font-weight:700;color:#fff">PTV</div>
+          <div style="line-height:1.2"><div style="font-size:13px;font-weight:700;color:#fff">Discovery Coach</div></div>
+        </div>
+      </div>
+      <nav style="flex:1;padding:8px 0">
+        <button class="nav-item">📁 <span>Overview</span></button>
+        <button class="nav-item active">🎙 <span>Live Session</span></button>
+        <button class="nav-item">📊 <span>ROI Calculator</span></button>
+        <button class="nav-item">🔗 <span>Leexi Import</span></button>
+        <button class="nav-item">👥 <span>Contacts</span></button>
+        <button class="nav-item">📜 <span>Session History</span></button>
+      </nav>
+      <div class="user-footer">
+        <div class="user-avatar">JP</div>
+        <div style="flex:1"><div style="font-size:12px;font-weight:500">Joseph Phillips</div></div>
+      </div>
+    </div>
+    <div class="main-area">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div><div class="page-title">Live Session — Acme Logistics GmbH</div><div class="page-sub">Started 2:14 PM · 00:08:32</div></div>
+        <div style="display:flex;gap:8px"><button class="btn-ghost">Pause</button><button class="btn-primary" style="background:#dc2626">⏹ End Session</button></div>
+      </div>
+      <div class="grid-2" style="gap:16px">
+        <div>
+          <div class="ptv-card" style="margin-bottom:12px">
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:4px">Suggested Question</div>
+            <hr class="ptv-divider"/>
+            <div style="font-size:.95rem;color:var(--ptv-text);line-height:1.5;margin-bottom:12px">"Who ultimately signs off on this type of investment, and have you engaged them yet?"</div>
+            <div style="display:flex;gap:6px">
+              <span class="ptv-badge ptv-badge-red">Economic Buyer</span>
+              <span class="ptv-badge ptv-badge-orange">Score: 38 → target</span>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:10px"><button class="btn-primary" style="font-size:12px;padding:5px 12px">✓ Used</button><button class="btn-secondary" style="font-size:12px;padding:5px 12px">Skip</button><button class="btn-ghost" style="font-size:12px;padding:5px 12px">Next ›</button></div>
+          </div>
+          <div class="ptv-card">
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:4px">Live Transcript</div>
+            <hr class="ptv-divider"/>
+            <div style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow:hidden">
+              <div style="font-size:12px;padding:5px 8px;background:var(--ptv-surface2);border-radius:6px;color:var(--ptv-text3)">Rep: Tell me more about your current dispatch process — where do you see the biggest friction?</div>
+              <div style="font-size:12px;padding:5px 8px;background:#fef2f2;border-radius:6px;color:var(--ptv-text2);border-left:2px solid var(--ptv-red)">Customer: Our planners are spending 2 hours each morning just re-doing routes from the day before because conditions change overnight. It's completely manual...</div>
+              <div style="font-size:12px;padding:5px 8px;background:var(--ptv-surface2);border-radius:6px;color:var(--ptv-text3)">Rep: That's a significant time sink. What does that translate to in cost per week across your team?</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="ptv-card">
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:4px">MEDDIC Coverage — Live</div>
+            <hr class="ptv-divider"/>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:100px;font-size:11px;color:var(--ptv-text2)">Goals</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:85%"></div></div><span style="font-size:11px;color:var(--ptv-text3);width:24px;text-align:right">85</span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:100px;font-size:11px;color:var(--ptv-text2)">Identify Pain</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:81%"></div></div><span style="font-size:11px;color:var(--ptv-text3);width:24px;text-align:right">81</span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:100px;font-size:11px;color:var(--ptv-text2)">Metrics</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:72%"></div></div><span style="font-size:11px;color:var(--ptv-text3);width:24px;text-align:right">72</span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:100px;font-size:11px;color:var(--ptv-text2)">Decision Process</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:51%"></div></div><span style="font-size:11px;color:var(--ptv-text3);width:24px;text-align:right">51</span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:100px;font-size:11px;color:var(--ptv-red);font-weight:600">Economic Buyer</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:38%"></div></div><span style="font-size:11px;color:var(--ptv-red);width:24px;text-align:right">38</span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="width:100px;font-size:11px;color:var(--ptv-red);font-weight:600">Champion</span><div class="score-bar-track" style="flex:1"><div class="score-bar-fill" style="width:42%"></div></div><span style="font-size:11px;color:var(--ptv-red);width:24px;text-align:right">42</span></div>
+            </div>
+            <div style="margin-top:12px;padding:8px;background:#fef2f2;border-radius:8px;border-left:3px solid var(--ptv-red)">
+              <div style="font-size:11px;font-weight:600;color:var(--ptv-red)">Focus: Economic Buyer</div>
+              <div style="font-size:11px;color:var(--ptv-text3)">Lowest coverage — ask about decision-maker involvement</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ADMIN ═══════════════ -->
+<div id="screen-admin" class="demo-screen">
+  <div class="app-frame">
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:rgba(0,0,0,.25);border-radius:4px;padding:3px 7px;font-size:12px;font-weight:700;color:#fff">PTV</div>
+          <div style="line-height:1.2"><div style="font-size:13px;font-weight:700;color:#fff">Discovery Coach</div></div>
+        </div>
+      </div>
+      <nav style="flex:1;padding:8px 0">
+        <button class="nav-item">📋 <span>Accounts</span></button>
+        <div class="nav-section-label">Tools</div>
+        <button class="nav-item">📈 <span>Manager Dashboard</span></button>
+        <button class="nav-item active">⚙️ <span>Admin</span></button>
+      </nav>
+      <div class="user-footer">
+        <div class="user-avatar">JP</div>
+        <div style="flex:1"><div style="font-size:12px;font-weight:500">Joseph Phillips</div><div style="font-size:10px;color:var(--ptv-text3)">Admin</div></div>
+      </div>
+    </div>
+    <div class="main-area">
+      <div class="page-title" style="margin-bottom:4px">Admin Panel</div>
+      <div class="page-sub">Manage users, question bank, and system settings</div>
+      <div class="grid-2" style="gap:16px">
+        <div>
+          <div class="ptv-card">
+            <div style="font-weight:600;margin-bottom:4px">User Management</div>
+            <hr class="ptv-divider"/>
+            <table class="ptv-table">
+              <thead><tr><th>Name</th><th>Role</th><th>Last Login</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>Joseph Phillips</td><td><span class="ptv-badge ptv-badge-red">Admin</span></td><td>Today</td><td><button class="btn-ghost" style="font-size:11px;padding:3px 8px">Edit</button></td></tr>
+                <tr><td>Sarah Klein</td><td><span class="ptv-badge ptv-badge-orange">Manager</span></td><td>Yesterday</td><td><button class="btn-ghost" style="font-size:11px;padding:3px 8px">Edit</button></td></tr>
+                <tr><td>Marco Bauer</td><td><span class="ptv-badge ptv-badge-gray">Rep</span></td><td>Apr 10</td><td><button class="btn-ghost" style="font-size:11px;padding:3px 8px">Edit</button></td></tr>
+              </tbody>
+            </table>
+            <button class="btn-primary" style="margin-top:10px;font-size:12px;padding:6px 14px">+ Add User</button>
+          </div>
+        </div>
+        <div>
+          <div class="ptv-card">
+            <div style="font-weight:600;margin-bottom:4px">Question Bank</div>
+            <hr class="ptv-divider"/>
+            <div class="grid-2" style="margin-bottom:12px;gap:8px">
+              <div class="ptv-metric-card" style="padding:.75rem"><div class="ptv-metric-label">Total Questions</div><div class="ptv-metric-value" style="font-size:1.4rem">162</div></div>
+              <div class="ptv-metric-card" style="padding:.75rem"><div class="ptv-metric-label">Active</div><div class="ptv-metric-value" style="font-size:1.4rem;color:#16a34a">158</div></div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn-secondary" style="font-size:12px;padding:5px 12px">Upload CSV</button>
+              <button class="btn-ghost" style="font-size:12px;padding:5px 12px">View All</button>
+            </div>
+          </div>
+          <div class="ptv-card">
+            <div style="font-weight:600;margin-bottom:4px">Question Usage Stats</div>
+            <hr class="ptv-divider"/>
+            <table class="ptv-table">
+              <thead><tr><th>Question</th><th>Asked</th><th>Accepted</th></tr></thead>
+              <tbody>
+                <tr><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"Who signs off on this investment?"</td><td>24</td><td><span style="color:#16a34a;font-weight:600">18</span></td></tr>
+                <tr><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"What does that cost you per week?"</td><td>19</td><td><span style="color:#16a34a;font-weight:600">14</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(name) {
+  document.querySelectorAll('.demo-screen').forEach(s => s.classList.remove('active'))
+  document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'))
+  document.getElementById('screen-' + name).classList.add('active')
+  event.target.classList.add('active')
+}
+</script>
+</body>
+</html>

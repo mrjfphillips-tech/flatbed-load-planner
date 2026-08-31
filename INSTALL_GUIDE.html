@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PTV Discovery Coach - Installation Guide</title>
+<style>
+  @media print { .no-print{display:none} body{margin:0} }
+  body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Arial,sans-serif;max-width:820px;margin:40px auto;padding:0 32px;color:#1a1a2e;line-height:1.7;background:#fff}
+  .no-print{background:#2563eb;color:white;border:none;padding:10px 24px;border-radius:6px;font-size:14px;cursor:pointer;margin-bottom:32px;display:block}
+  .cover{text-align:center;padding:50px 0 30px;border-bottom:3px solid #2563eb;margin-bottom:40px}
+  .cover h1{font-size:26px;margin:8px 0 4px;color:#1e3a5f}
+  .cover .sub{font-size:15px;color:#64748b;margin:0 0 8px}
+  .cover .meta{font-size:12px;color:#94a3b8}
+  h2{font-size:18px;color:#1e3a5f;border-left:4px solid #2563eb;padding-left:12px;margin-top:40px}
+  h3{font-size:15px;color:#2563eb;margin-top:20px;margin-bottom:6px}
+  .step{background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:8px;padding:16px 20px;margin:14px 0}
+  .step-num{display:inline-block;background:#2563eb;color:#fff;width:28px;height:28px;border-radius:50%;text-align:center;line-height:28px;font-size:13px;font-weight:700;margin-right:10px}
+  .step-title{font-size:14px;font-weight:600;color:#1e3a5f}
+  .step p{font-size:13px;color:#374151;margin:8px 0 0}
+  code{background:#f1f5f9;color:#c7254e;padding:2px 6px;border-radius:4px;font-size:12px;font-family:Consolas,'Courier New',monospace}
+  pre{background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px;font-size:12px;overflow-x:auto;font-family:Consolas,'Courier New',monospace;line-height:1.6}
+  .warn{background:#fef3c7;border:1px solid #fbbf24;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13px;color:#92400e}
+  .success{background:#dcfce7;border:1px solid #86efac;border-left:4px solid #22c55e;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13px;color:#166534}
+  .info{background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #3b82f6;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13px;color:#1e40af}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+  th{background:#1e3a5f;color:white;padding:8px 12px;text-align:left}
+  td{padding:8px 12px;border-bottom:1px solid #e2e8f0}
+  tr:nth-child(even) td{background:#f8fafc}
+  .footer{margin-top:60px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}
+  ul{padding-left:20px} li{margin-bottom:6px;font-size:13px}
+  .toc{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 24px;margin:20px 0}
+  .toc a{color:#2563eb;text-decoration:none;font-size:13px;display:block;padding:3px 0}
+  .toc a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<button class="no-print" onclick="window.print()">Print / Save as PDF</button>
+
+<div class="cover">
+  <h1>PTV Discovery Coach</h1>
+  <p class="sub">Installation &amp; Setup Guide</p>
+  <p class="meta">Version 1.0 &middot; April 2026 &middot; Internal Use Only</p>
+</div>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <a href="#prereqs">1. Prerequisites</a>
+  <a href="#install">2. Install Dependencies</a>
+  <a href="#env">3. Configure Environment Variables</a>
+  <a href="#db">4. Set Up the Database</a>
+  <a href="#build">5. Build the App</a>
+  <a href="#run">6. Run the App</a>
+  <a href="#leexi">7. Leexi Integration Setup</a>
+  <a href="#questions">8. Load the Question Bank</a>
+  <a href="#trouble">9. Troubleshooting</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="prereqs">1. Prerequisites</h2>
+
+<p>You need these installed on your machine before starting:</p>
+
+<table>
+  <tr><th>Tool</th><th>Version</th><th>How to Check</th></tr>
+  <tr><td>Node.js</td><td>18 or higher</td><td><code>node --version</code></td></tr>
+  <tr><td>npm</td><td>9 or higher</td><td><code>npm --version</code></td></tr>
+  <tr><td>Git</td><td>Any recent</td><td><code>git --version</code></td></tr>
+</table>
+
+<div class="info">
+  <strong>Don't have Node.js?</strong> Download it from <a href="https://nodejs.org">nodejs.org</a> (LTS version recommended). npm comes bundled with Node.js.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="install">2. Install Dependencies</h2>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Open a terminal</span>
+  <p>Open Command Prompt, PowerShell, or your preferred terminal.</p>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Navigate to the project folder</span>
+  <pre>cd ptv-discovery-coach</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Install all packages</span>
+  <pre>npm install</pre>
+  <p>This installs dependencies for all packages (shared, frontend, backend, electron). Takes 2-3 minutes.</p>
+</div>
+
+<div class="success">
+  You should see <code>added XXX packages</code> with no errors. Warnings about deprecated packages are normal and safe to ignore.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="env">3. Configure Environment Variables</h2>
+
+<div class="step">
+  <span class="step-num">4</span>
+  <span class="step-title">Create the backend .env file</span>
+  <p>Copy the example file and fill in your values:</p>
+  <pre>cd packages/backend
+copy .env.example .env</pre>
+  <p>Then open <code>packages/backend/.env</code> in a text editor and fill in:</p>
+</div>
+
+<pre>
+# Database (SQLite for local dev, PostgreSQL for production)
+DATABASE_URL="file:./dev.db"
+
+# Auth0 (get these from your Auth0 dashboard)
+AUTH0_AUDIENCE=https://ptv-discovery-coach
+AUTH0_ISSUER_BASE_URL=https://YOUR-TENANT.auth0.com
+
+# OpenAI (for AI question suggestions and summaries)
+OPENAI_API_KEY=sk-your-openai-key-here
+
+# Leexi Integration (optional - for call import/export)
+LEEXI_API_KEY_ID=your-leexi-key-id
+LEEXI_API_KEY_SECRET=your-leexi-secret
+
+# Frontend URL (for CORS)
+FRONTEND_URL=http://localhost:3000
+</pre>
+
+<div class="warn">
+  <strong>Important:</strong> Never commit the <code>.env</code> file to Git. It contains secrets. The file is already in <code>.gitignore</code>.
+</div>
+
+<table>
+  <tr><th>Variable</th><th>Where to Get It</th><th>Required?</th></tr>
+  <tr><td>DATABASE_URL</td><td>Use the SQLite default for local dev</td><td>Yes</td></tr>
+  <tr><td>AUTH0_AUDIENCE</td><td>Auth0 Dashboard &rarr; APIs</td><td>Yes</td></tr>
+  <tr><td>AUTH0_ISSUER_BASE_URL</td><td>Auth0 Dashboard &rarr; Settings</td><td>Yes</td></tr>
+  <tr><td>OPENAI_API_KEY</td><td><a href="https://platform.openai.com/api-keys">platform.openai.com</a></td><td>Yes (for AI features)</td></tr>
+  <tr><td>LEEXI_API_KEY_ID</td><td>Leexi &rarr; Settings &rarr; API Keys</td><td>Optional</td></tr>
+  <tr><td>LEEXI_API_KEY_SECRET</td><td>Leexi &rarr; Settings &rarr; API Keys</td><td>Optional</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="db">4. Set Up the Database</h2>
+
+<div class="step">
+  <span class="step-num">5</span>
+  <span class="step-title">Generate the Prisma client</span>
+  <pre>cd packages/backend
+npx prisma generate</pre>
+  <p>This creates the database client from the schema. You should see: <code>Generated Prisma Client</code></p>
+</div>
+
+<div class="step">
+  <span class="step-num">6</span>
+  <span class="step-title">Create the database tables</span>
+  <pre>npx prisma db push</pre>
+  <p>This creates all the tables in your database. For local dev with SQLite, it creates a <code>dev.db</code> file.</p>
+</div>
+
+<div class="step">
+  <span class="step-num">7</span>
+  <span class="step-title">(Optional) View the database</span>
+  <pre>npx prisma studio</pre>
+  <p>Opens a web UI at <code>http://localhost:5555</code> where you can browse and edit data.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="build">5. Build the App</h2>
+
+<div class="step">
+  <span class="step-num">8</span>
+  <span class="step-title">Build all packages</span>
+  <p>From the project root (<code>ptv-discovery-coach/</code>):</p>
+  <pre>cd ../..
+npm run build</pre>
+  <p>This builds shared &rarr; backend &rarr; frontend &rarr; electron in order.</p>
+</div>
+
+<div class="success">
+  If the build succeeds with no errors, you're ready to run the app.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="run">6. Run the App</h2>
+
+<h3>Option A: Development Mode (recommended for testing)</h3>
+
+<p>Open two terminal windows:</p>
+
+<div class="step">
+  <span class="step-title">Terminal 1 - Backend</span>
+  <pre>npm run dev:backend</pre>
+  <p>Starts the API server at <code>http://localhost:4000</code></p>
+</div>
+
+<div class="step">
+  <span class="step-title">Terminal 2 - Frontend</span>
+  <pre>npm run dev:frontend</pre>
+  <p>Starts the web app at <code>http://localhost:3000</code></p>
+</div>
+
+<h3>Option B: Desktop App (Electron)</h3>
+
+<div class="step">
+  <span class="step-title">Build and run the desktop app</span>
+  <pre>npm run dev:electron</pre>
+  <p>Opens the app as a native Windows application.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="leexi">7. Leexi Integration Setup</h2>
+
+<div class="info">
+  Leexi integration is optional. Skip this section if you don't use Leexi for call recording.
+</div>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Get your API keys</span>
+  <p>Log into <a href="https://app.leexi.ai">app.leexi.ai</a> &rarr; Settings &rarr; Company Settings &rarr; API Keys &rarr; Click "Add"</p>
+  <p>You'll get a <strong>Key ID</strong> and a <strong>Key Secret</strong>. Copy both.</p>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Add keys to .env</span>
+  <p>Open <code>packages/backend/.env</code> and set:</p>
+  <pre>LEEXI_API_KEY_ID=your-key-id-here
+LEEXI_API_KEY_SECRET=your-secret-here</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">(Optional) Set up webhooks for automatic import</span>
+  <p>In Leexi: Settings &rarr; Webhooks &rarr; Add</p>
+  <ul>
+    <li>Name: <code>PTV Discovery Coach</code></li>
+    <li>URL: <code>https://your-server.com/api/leexi/webhook</code></li>
+  </ul>
+  <p>Leexi will send a test event. Your server must respond with a 200 status to activate the webhook.</p>
+</div>
+
+<p><strong>What you can do with Leexi:</strong></p>
+<ul>
+  <li><strong>Pull:</strong> Import call transcripts from Leexi for MEDDIC analysis</li>
+  <li><strong>Push:</strong> Send session recordings to Leexi for AI transcription</li>
+  <li><strong>Webhook:</strong> Automatically import calls when Leexi finishes processing</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="questions">8. Load the Question Bank</h2>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Open the Question Upload Template</span>
+  <p>Find the file: <code>data/Question_Upload_Template.xlsx</code></p>
+  <p>It has 3 tabs: Instructions, Questions (with examples), and Valid Values reference.</p>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Add your questions</span>
+  <p>Fill in the QUESTIONS tab. Each row needs:</p>
+  <ul>
+    <li><strong>question_text</strong> - The question to ask</li>
+    <li><strong>meddic_element</strong> - Which MEDDIC area it targets (use dropdown)</li>
+    <li><strong>buyer_persona</strong> - Who it's for (use dropdown)</li>
+    <li><strong>coaching_note</strong> - Why ask this &amp; what to listen for (optional but recommended)</li>
+    <li><strong>industry_segment</strong> - Industry filter, or leave blank for universal (use dropdown)</li>
+  </ul>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Save as CSV and upload</span>
+  <p>File &rarr; Save As &rarr; CSV UTF-8 (.csv)</p>
+  <p>In the app: Admin &rarr; Question Bank &rarr; Bulk CSV Upload &rarr; Choose your file</p>
+</div>
+
+<div class="info">
+  A starter question bank with 200+ questions is included at <code>data/starter-question-bank.csv</code>. You can upload it directly.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="trouble">9. Troubleshooting</h2>
+
+<table>
+  <tr><th>Problem</th><th>Solution</th></tr>
+  <tr><td><code>npm install</code> fails with permission errors</td><td>Run as Administrator, or check that Node.js is installed for your user account</td></tr>
+  <tr><td><code>EPERM: operation not permitted, lstat</code></td><td>Node.js was installed under a different user. Reinstall Node.js from <a href="https://nodejs.org">nodejs.org</a> for your user</td></tr>
+  <tr><td><code>prisma generate</code> fails</td><td>Make sure you're in the <code>packages/backend</code> directory and <code>npm install</code> completed first</td></tr>
+  <tr><td>Backend won't start - missing .env</td><td>Copy <code>.env.example</code> to <code>.env</code> and fill in the values</td></tr>
+  <tr><td>Leexi returns 401 Unauthorized</td><td>Double-check your API Key ID and Secret. Make sure the key is active in Leexi settings</td></tr>
+  <tr><td>Leexi returns 403 / error 1010</td><td>Cloudflare is blocking the request. Make sure you're using the correct base URL: <code>https://public-api.leexi.ai/v1</code></td></tr>
+  <tr><td>Frontend shows blank page</td><td>Check that the backend is running on port 4000 and CORS is configured in .env</td></tr>
+  <tr><td>Questions not showing during session</td><td>Upload the question bank CSV via Admin &rarr; Bulk Upload</td></tr>
+</table>
+
+<div class="footer">
+  PTV Discovery Coach &middot; Installation Guide v1.0 &middot; Confidential &middot; April 2026
+</div>
+
+</body>
+</html>

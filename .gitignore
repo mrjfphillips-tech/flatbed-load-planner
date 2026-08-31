@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.DS_Store
+*.swp
+*.swo
+.idea/
+
+# Test coverage
+coverage/
+
+# Docker volumes
+postgres_data/
+redis_data/
+neo4j_data/
+
+# pnpm
+pnpm-debug.log

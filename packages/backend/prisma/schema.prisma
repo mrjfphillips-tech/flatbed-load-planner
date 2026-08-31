@@ -1,0 +1,289 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users & Accounts ─────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  role      UserRole
+  passwordHash       String?  @map("password_hash")
+  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  lastLoginAt        DateTime? @map("last_login_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sessions             Session[]
+  questionIntentScores QuestionIntentScore[]
+  repQuestionPrefs     RepQuestionPref[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  Rep
+  Manager
+  Admin
+}
+
+model Account {
+  id              String   @id @default(uuid())
+  name            String
+  /// Industry segment identified at session start — drives question filtering
+  industrySegment IndustrySegment? @map("industry_segment")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  sessions Session[]
+  contacts Contact[]
+
+  @@map("accounts")
+}
+
+// ─── Sessions ─────────────────────────────────────────────────────────────────
+
+model Session {
+  id              String      @id @default(uuid())
+  accountId       String      @map("account_id")
+  repId           String      @map("rep_id")
+  startedAt       DateTime    @default(now()) @map("started_at")
+  endedAt         DateTime?   @map("ended_at")
+  durationSeconds Int?        @map("duration_seconds")
+  /// Final MEDDIC coverage scores (12 elements, each 0-100)
+  coverageScores  Json        @default("{}") @map("coverage_scores")
+  autoSavedAt     DateTime?   @map("auto_saved_at")
+  /// Req 14.8: 'live' or 'offline_recovery'
+  sessionType     SessionType @default(live) @map("session_type")
+  /// Req 14.1: object storage URL for raw audio
+  audioRecordingUrl String?   @map("audio_recording_url")
+
+  account             Account               @relation(fields: [accountId], references: [id])
+  rep                 User                  @relation(fields: [repId], references: [id])
+  transcriptSegments  TranscriptSegment[]
+  summaries           Summary[]
+  questionIntentScores QuestionIntentScore[]
+  attachments         Attachment[]
+  exportEvents        ExportEvent[]
+  sessionContacts     SessionContact[]
+
+  @@map("sessions")
+}
+
+enum SessionType {
+  live
+  offline_recovery
+}
+
+// ─── Transcript ───────────────────────────────────────────────────────────────
+
+model TranscriptSegment {
+  id        String          @id @default(uuid())
+  sessionId String          @map("session_id")
+  text      String
+  startMs   Int             @map("start_ms")
+  endMs     Int             @map("end_ms")
+  source    TranscriptSource
+  /// "OCR Input" + timestamp label for OCR segments
+  ocrLabel  String?         @map("ocr_label")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@map("transcript_segments")
+}
+
+enum TranscriptSource {
+  speech
+  ocr
+}
+
+// ─── Summaries ────────────────────────────────────────────────────────────────
+
+model Summary {
+  id           String    @id @default(uuid())
+  sessionId    String    @map("session_id")
+  /// Original AI-generated text — immutable
+  aiGenerated  String    @map("ai_generated")
+  /// Rep-edited version — auto-saved
+  repEdited    String    @map("rep_edited")
+  generatedAt  DateTime  @default(now()) @map("generated_at")
+  lastEditedAt DateTime? @map("last_edited_at")
+
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@map("summaries")
+}
+
+// ─── Questions ────────────────────────────────────────────────────────────────
+
+model Question {
+  id            String       @id @default(uuid())
+  text          String
+  element       MEDDICElement
+  persona       BuyerPersona
+  isActive      Boolean      @default(true) @map("is_active")
+  /// Optional coaching note explaining why this question matters and what to listen for
+  coachingNote  String?      @map("coaching_note")
+  /// Optional industry segment filter — null means question applies to all segments
+  industrySegment IndustrySegment? @map("industry_segment")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  deactivatedAt DateTime?    @map("deactivated_at")
+
+  questionIntentScores QuestionIntentScore[]
+  repQuestionPrefs     RepQuestionPref[]
+
+  @@map("questions")
+}
+
+enum MEDDICElement {
+  Metrics
+  EconomicBuyer
+  DecisionCriteria
+  DecisionProcess
+  IdentifyPain
+  Champion
+  People
+  Organization
+  Goals
+  Plans
+  Obstacles
+  PlansToOvercomeObstacles
+}
+
+enum BuyerPersona {
+  FleetManager
+  LogisticsDirector
+  SupplyChainVP
+  ITArchitect
+  OperationsAnalyst
+}
+
+enum IndustrySegment {
+  ThirdPartyLogistics
+  BuildingSupply
+  ManufacturingDistribution
+  RetailEcommerce
+  FoodBeverageFMCG
+  HealthcarePharma
+  FieldServices
+  Other
+}
+
+// ─── Rep Question Preferences ─────────────────────────────────────────────────
+
+model RepQuestionPref {
+  repId        String   @map("rep_id")
+  questionId   String   @map("question_id")
+  isPreferred  Boolean  @default(false) @map("is_preferred")
+  /// Rolling average of Question_Intent_Score for this rep+question
+  avgIntentScore Float  @default(0) @map("avg_intent_score")
+  useCount     Int      @default(0) @map("use_count")
+  starredAt    DateTime? @map("starred_at")
+
+  rep      User     @relation(fields: [repId], references: [id])
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@id([repId, questionId])
+  @@map("rep_question_prefs")
+}
+
+// ─── Question Intent Scores ───────────────────────────────────────────────────
+
+model QuestionIntentScore {
+  id          String   @id @default(uuid())
+  sessionId   String   @map("session_id")
+  questionId  String   @map("question_id")
+  repId       String   @map("rep_id")
+  /// Score in [0, 100]
+  score       Int
+  evaluatedAt DateTime @default(now()) @map("evaluated_at")
+
+  session  Session  @relation(fields: [sessionId], references: [id])
+  question Question @relation(fields: [questionId], references: [id])
+  rep      User     @relation(fields: [repId], references: [id])
+
+  @@map("question_intent_scores")
+}
+
+// ─── Attachments ──────────────────────────────────────────────────────────────
+
+model Attachment {
+  id            String   @id @default(uuid())
+  sessionId     String   @map("session_id")
+  originalUrl   String   @map("original_url")
+  extractedText String?  @map("extracted_text")
+  mimeType      String   @map("mime_type")
+  capturedAt    DateTime @default(now()) @map("captured_at")
+
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@map("attachments")
+}
+
+// ─── Export Events ────────────────────────────────────────────────────────────
+
+model ExportEvent {
+  id             String        @id @default(uuid())
+  sessionId      String        @map("session_id")
+  channel        ExportChannel
+  timestamp      DateTime      @default(now())
+  recipientCount Int           @default(0) @map("recipient_count")
+  success        Boolean       @default(false)
+  errorMessage   String?       @map("error_message")
+
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@map("export_events")
+}
+
+enum ExportChannel {
+  salesforce
+  microsoft365
+  sms
+  email
+}
+
+// ─── Contacts ─────────────────────────────────────────────────────────────────
+
+model Contact {
+  id                   String      @id @default(uuid())
+  accountId            String      @map("account_id")
+  fullName             String      @map("full_name")
+  jobTitle             String      @map("job_title")
+  email                String
+  phone                String
+  address              String?
+  linkedInUrl          String?     @map("linkedin_url")
+  buyerPersona         BuyerPersona @map("buyer_persona")
+  /// Req 15.5: stored attachment URL for business card image
+  businessCardImageUrl String?     @map("business_card_image_url")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  account         Account          @relation(fields: [accountId], references: [id])
+  sessionContacts SessionContact[]
+
+  @@map("contacts")
+}
+
+// ─── Session Contacts (join table) ────────────────────────────────────────────
+
+model SessionContact {
+  sessionId String   @map("session_id")
+  contactId String   @map("contact_id")
+  linkedAt  DateTime @default(now()) @map("linked_at")
+
+  session Session @relation(fields: [sessionId], references: [id])
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, contactId])
+  @@map("session_contacts")
+}

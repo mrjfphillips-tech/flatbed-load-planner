@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PTV Discovery Coach — Dual Path Demo (Sales + SE Maturity Grid)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; min-height: 100vh; }
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155; --border: #475569;
+    --text: #f1f5f9; --text2: #94a3b8; --text3: #64748b;
+    --accent: #3b82f6; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --purple: #a78bfa;
+    --ptv-red: #e63312;
+  }
+
+  /* Path Selector */
+  .path-selector { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .path-selector-inner { max-width: 700px; width: 100%; text-align: center; }
+  .path-card { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 32px 24px; cursor: pointer; transition: all .2s; text-align: center; }
+  .path-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.3); }
+  .path-card.active { border-color: var(--accent); background: rgba(59,130,246,.08); }
+  .path-icon { font-size: 48px; margin-bottom: 12px; }
+  .path-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .path-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+  /* Layout */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 10; }
+  .main { flex: 1; margin-left: 220px; padding: 20px; overflow-y: auto; }
+  .nav-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 20px; font-size: 13px; color: var(--text2); background: transparent; border: none; border-left: 2px solid transparent; cursor: pointer; text-align: left; }
+  .nav-item.active { color: #60a5fa; background: rgba(59,130,246,.1); border-left-color: var(--accent); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+
+  /* Maturity Grid */
+  .phase { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+  .phase-header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; background: var(--surface); }
+  .phase-header:hover { background: var(--surface2); }
+  .phase-icon { font-size: 20px; }
+  .phase-name { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+  .phase-pct { font-size: 13px; font-weight: 700; min-width: 40px; text-align: right; }
+  .progress-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; flex: 1; max-width: 120px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+  .phase-body { padding: 0 16px 16px; }
+  .grid-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--surface2); }
+  .grid-item:last-child { border-bottom: none; }
+  .status-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
+  .status-btn.completed { background: rgba(34,197,94,.15); border-color: var(--green); }
+  .status-btn.in_progress { background: rgba(59,130,246,.15); border-color: var(--accent); }
+  .item-content { flex: 1; }
+  .item-code { font-size: 11px; color: var(--accent); font-weight: 600; }
+  .item-label { font-size: 13px; color: var(--text); font-weight: 500; margin-top: 2px; }
+  .item-desc { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.4; }
+  .item-notes { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--text); resize: vertical; min-height: 40px; margin-top: 6px; outline: none; font-family: inherit; }
+  .item-meta { font-size: 10px; color: var(--text3); margin-top: 4px; }
+  .dod { background: rgba(34,197,94,.06); border: 1px solid rgba(34,197,94,.2); border-radius: 8px; padding: 10px; margin-top: 12px; font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .dod-label { font-size: 10px; font-weight: 700; color: var(--green); margin-bottom: 4px; text-transform: uppercase; }
+
+  /* Dashboard */
+  .dash-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .dash-table th { text-align: left; padding: 8px 10px; color: var(--text3); font-weight: 600; font-size: 10px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  .dash-table td { padding: 8px 10px; border-bottom: 1px solid var(--surface2); }
+  .dash-table tr:hover { background: rgba(59,130,246,.04); }
+  .pct-badge { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 12px; padding: 10px 20px; border-radius: 20px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,.4); display: none; }
+  .toast.show { display: block; }
+
+  /* Path switch */
+  .path-switch { display: flex; gap: 4px; padding: 4px; background: var(--surface2); border-radius: 8px; }
+  .path-switch button { padding: 4px 10px; font-size: 10px; border: none; border-radius: 6px; cursor: pointer; color: var(--text2); background: transparent; }
+  .path-switch button.active { background: var(--accent); color: #fff; }
+
+  @media (max-width: 768px) {
+    .sidebar { left: -220px; } .main { margin-left: 0; }
+    .path-selector-inner { padding: 0 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Data ──────────────────────────────────────────────────────────────────────
+
+const PHASES = [
+  { number: 1, name: 'Framework (Vision & Roles)', icon: '🏗️', dod: 'Project space created on Confluence. Framework page with management metrics, MVP planning process diagram, roles with names/contacts/meeting agreements, and business dictionary.', items: [
+    { code: '1.1', label: 'Vision', desc: 'Alignment on digital transformation goals, success factors, and OptiFlow platform ambition' },
+    { code: '1.2', label: 'Business & Process scope fixed', desc: 'Which planning process and business unit are in scope. Prioritize by data quality and order volume.' },
+    { code: '1.3', label: 'Minimum Viable Plan Process', desc: 'What process & features cover 90% of the business? Identify the happy flow.' },
+    { code: '1.4', label: 'Management metrics', desc: 'Leading KPIs defined. How to quantify plan quality. Strategic business goals clear.' },
+    { code: '1.5', label: 'Role: Planner available & eager', desc: 'Experienced planner identified who can communicate rules and evaluate results.' },
+    { code: '1.6', label: 'Role: Data Steward', desc: 'Person with data ownership & mandate. Can gather data and guide data evolution.' },
+    { code: '1.7', label: 'Role: Active management support', desc: 'Decision-making body that supports culture of change and shields the team.' },
+    { code: '1.8', label: 'Steering Committees', desc: 'Cadence agreed, first sessions scheduled. Monthly steering committee commitment.' },
+  ]},
+  { number: 2, name: 'Generic Data Settings', icon: '⚙️', dod: 'Page with decisions & test results for each setting. Date of decision and sign-off from all parties documented.', items: [
+    { code: '2.1', label: 'Speed profile', desc: 'One per planning. Vehicle type decisions made. Speed factors vs separate profiles evaluated.' },
+    { code: '2.2', label: 'Breaks', desc: 'Break settings configured per regulations and driver agreements.' },
+    { code: '2.3', label: 'Geocoding', desc: 'Address quality verified. Customer responsible for coordinate accuracy.' },
+    { code: '2.4', label: 'VRP or P&D', desc: 'Routing model decided: VRP (with/without backhaul) or Pickup & Delivery.' },
+    { code: '2.5', label: 'Depots', desc: 'Multi-tour setup, loading times, driver start locations, pickup return rules.' },
+    { code: '2.6', label: 'Timewindow type', desc: 'Arrival, service start, or execution timewindow type selected.' },
+    { code: '2.7', label: 'Cost structure', desc: 'Optimization cost parameters defined. Most important setting for results.' },
+  ]},
+  { number: 3, name: 'As-Is (Current State)', icon: '📊', dod: 'ASIS Changelog page with dates, OptiFlow URLs, input files, conversion scripts, case summaries, violation lists with accepted/rejected labels, and customer sign-off.', items: [
+    { code: '3.1', label: 'Data complete', desc: 'Planned routes & sequences, orders & vehicles. Service times, addresses, volumes, time windows, AS-IS vehicle/sequence.' },
+    { code: '3.2', label: 'Representative dataset in scope', desc: 'Typical planning period selected. Not the most challenging period. All orders & vehicles as they were at planning time.' },
+    { code: '3.3', label: 'Data in OptiFlow format', desc: 'Spreadsheet format for maximum flexibility. Example files downloaded from OptiFlow.' },
+    { code: '3.4', label: 'Automated data cleansing/transforming', desc: 'Transformation scripts created. Changes made in scripts, not source data.' },
+    { code: '3.5', label: 'Routing & Traffic', desc: 'Drive times checked & calibrated. Historical traffic data configured.' },
+    { code: '3.6', label: 'Planning Requirements', desc: 'Rules characterized: habits (don\'t migrate), legacy/tactical, necessary. List maintained in customer vocabulary.' },
+    { code: '3.7', label: 'Feasible ASIS & Benchmark', desc: 'Every violation has a cause. Routes removed or accepted with documented reasoning.' },
+  ]},
+  { number: 4, name: 'To-Be (Fit-Gap & Potential)', icon: '🎯', dod: 'Planning Requirements page extended with OptiFlow feature mapping. TOBE Changelog with dates, URLs, scripts, case summaries, planning comparisons, requirements coverage.', items: [
+    { code: '4.1', label: 'Fit-Gap OptiFlow functionality', desc: 'Gaps identified. Workarounds vs features. PO scoping and effort estimation.' },
+    { code: '4.2', label: 'Workaround limitations-risks-benefits', desc: 'Workaround coverage documented. Limitations, risks & benefits clear to everyone.' },
+    { code: '4.3', label: 'Base case potential', desc: 'Estimated gain of OptiFlow vs current system. All management metrics measured.' },
+  ]},
+  { number: 5, name: 'Operational Process', icon: '🔧', dod: 'Ownership transferred, planners trained, parallel planning successful, benchmarks provided to engine team, API integration tested.', items: [
+    { code: '5.1', label: 'Data & Planning ownership transferred', desc: 'Customer takes the reins. Consultants switch from active planning to guiding.' },
+    { code: '5.2', label: 'Training & coaching planners', desc: 'Train-the-trainer approach. Head planner trained as expert, presents to others.' },
+    { code: '5.3', label: 'Planning process - operational use cases', desc: 'Day-in-the-life scenarios. Under/overcapacity handling. Fixing, locking, dynamic planning.' },
+    { code: '5.4', label: 'Benchmarks', desc: 'Representative plannings provided to engine team. Multi-phase planning captured.' },
+    { code: '5.5', label: 'Interfacing', desc: 'API fit-gap analysis. Missing functionality impact assessed. Integration workshop done.' },
+    { code: '5.6', label: 'Parallel planning', desc: 'Current tool & OptiFlow running in parallel. No issues before OptiFlow goes live.' },
+  ]},
+  { number: 6, name: 'Live', icon: '🚀', dod: 'Service desk activated, users & permissions configured through OLI, OptiFlow is the planning solution.', items: [
+    { code: '6.1', label: 'Live', desc: 'Service desk activated. Everyone trained to use it. OptiFlow is now the planning solution.' },
+  ]},
+];
+
+// State
+let currentScreen = 'path-selector'; // path-selector | sales | se
+let seView = 'accounts'; // accounts | maturity | dashboard | export
+let selectedAccount = null;
+let expandedPhases = new Set([1]);
+
+// Sample accounts
+const accounts = [
+  { id: 'a1', name: 'Müller Kühllogistik GmbH', industry: 'Food & Beverage', phase: 3, sessions: 5 },
+  { id: 'a2', name: 'Weber Spedition AG', industry: 'Building Supply', phase: 1, sessions: 2 },
+  { id: 'a3', name: 'Schmidt Cold Chain', industry: 'FMCG', phase: 0, sessions: 0 },
+];
+
+// Grid state per account (localStorage)
+function getGridState(accountId) {
+  try { return JSON.parse(localStorage.getItem('mg_' + accountId) || '{}'); } catch { return {}; }
+}
+function setItemState(accountId, code, status, notes) {
+  const state = getGridState(accountId);
+  state[code] = { status: status || 'not_started', notes: notes || '', completedAt: status === 'completed' ? new Date().toISOString() : null };
+  localStorage.setItem('mg_' + accountId, JSON.stringify(state));
+}
+function getItemStatus(accountId, code) {
+  const state = getGridState(accountId);
+  return state[code] || { status: 'not_started', notes: '', completedAt: null };
+}
+
+// Calculations
+function phaseCompletion(accountId, phaseNum) {
+  const phase = PHASES.find(p => p.number === phaseNum);
+  if (!phase) return { total: 0, completed: 0, inProgress: 0, pct: 0 };
+  let completed = 0, inProgress = 0;
+  for (const item of phase.items) {
+    const s = getItemStatus(accountId, item.code).status;
+    if (s === 'completed') completed++;
+    else if (s === 'in_progress') inProgress++;
+  }
+  const pct = Math.round(((completed + inProgress * 0.5) / phase.items.length) * 100);
+  return { total: phase.items.length, completed, inProgress, pct };
+}
+function overallReadiness(accountId) {
+  let sum = 0;
+  for (let i = 1; i <= 6; i++) sum += phaseCompletion(accountId, i).pct;
+  return Math.round(sum / 6);
+}
+function pctColor(pct) { return pct >= 70 ? 'var(--green)' : pct >= 30 ? 'var(--yellow)' : 'var(--red)'; }
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+
+function render() {
+  const app = document.getElementById('app');
+  if (currentScreen === 'path-selector') app.innerHTML = renderPathSelector();
+  else if (currentScreen === 'sales') app.innerHTML = renderSalesStub();
+  else if (currentScreen === 'se') app.innerHTML = renderSEApp();
+
+  // Draw spider chart if on maturity grid view
+  setTimeout(function() {
+    if (currentScreen === 'se' && seView === 'maturity' && selectedAccount) {
+      const phaseData = PHASES.map(function(p) {
+        return { name: 'P' + p.number + ': ' + p.name.split('(')[0].trim(), pct: phaseCompletion(selectedAccount.id, p.number).pct };
+      });
+      drawSpiderChart('spider-chart', phaseData);
+    }
+  }, 0);
+}
+
+function renderPathSelector() {
+  return `
+    <div class="path-selector">
+      <div class="path-selector-inner">
+        <div style="margin-bottom:32px">
+          <div style="font-size:28px;margin-bottom:8px"><span style="color:var(--ptv-red);font-weight:700">PTV</span> Discovery Coach</div>
+          <div style="font-size:14px;color:var(--text2)">Choose your path</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="path-card" onclick="currentScreen='sales';render()">
+            <img src="img-se.png" style="width:140px;height:140px;border-radius:50%;object-fit:cover;margin-bottom:12px" alt="Sales">
+            <div class="path-title">Sales Discovery</div>
+            <div class="path-desc">MEDDIC-based discovery coaching.<br>Live sessions, question bank, ROI calculator, Leexi integration.</div>
+          </div>
+          <div class="path-card" onclick="currentScreen='se';render()">
+            <img src="img-sales.png" style="width:140px;height:140px;border-radius:50%;object-fit:cover;margin-bottom:12px" alt="Sales Engineering">
+            <div class="path-title">Pre-Sales Engineering</div>
+            <div class="path-desc">OptiFlow Maturity Grid tracker.<br>6-phase implementation readiness, checklist items, progress dashboard.</div>
+          </div>
+        </div>
+        <div style="margin-top:20px;font-size:11px;color:var(--text3)">You can switch between paths at any time using the toggle in the header.</div>
+      </div>
+    </div>`;
+}
+
+function renderSalesStub() {
+  return `
+    <div class="app">
+      <aside class="sidebar">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border)">
+          <span style="font-size:14px;font-weight:700;color:var(--ptv-red)">PTV</span>
+          <span style="font-size:13px;font-weight:600"> Discovery</span><br>
+          <span style="font-size:11px;color:var(--text2)">Sales Path</span>
+        </div>
+        <div style="padding:12px 20px">
+          <div class="path-switch">
+            <button class="active">🎯 Sales</button>
+            <button onclick="currentScreen='se';render()">🔧 SE</button>
+          </div>
+        </div>
+        <nav style="flex:1;padding:8px 0">
+          <button class="nav-item active">📋 Accounts</button>
+          <button class="nav-item">🎙 Live Session</button>
+          <button class="nav-item">📊 ROI Calculator</button>
+          <button class="nav-item">📈 Manager Dashboard</button>
+          <button class="nav-item">⚙️ Admin</button>
+        </nav>
+      </aside>
+      <main class="main">
+        <h1 style="font-size:20px;font-weight:600;margin-bottom:8px">Sales Discovery</h1>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:20px">This is the existing Sales path — MEDDIC coaching, live sessions, question bank, ROI calculator. Already built and deployed.</p>
+        <div class="card"><div class="card-title">✅ Already Implemented</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.8">
+            • 162-question bank with ChatGPT analysis<br>
+            • Live speech transcription & MEDDIC scoring<br>
+            • ROI Calculator (7 value streams, multi-currency)<br>
+            • Leexi audio sync (pull/push)<br>
+            • Post-session email summary<br>
+            • CRM export (Salesforce/HubSpot)<br>
+            • Competitive intelligence layer<br>
+            • Session history & replay<br>
+            • Manager dashboard<br>
+            • User management with temp passwords
+          </div>
+        </div>
+      </main>
+    </div>`;
+}
+
+function renderSEApp() {
+  return `
+    <div class="app">
+      ${renderSESidebar()}
+      <main class="main">
+        ${seView === 'accounts' ? renderSEAccounts() : ''}
+        ${seView === 'maturity' && selectedAccount ? renderMaturityGrid() : ''}
+        ${seView === 'se-session' && selectedAccount ? renderSESession() : ''}
+        ${seView === 'dashboard' ? renderSEDashboard() : ''}
+        ${seView === 'export' && selectedAccount ? renderExport() : ''}
+      </main>
+    </div>`;
+}
+
+function renderSESidebar() {
+  return `
+    <aside class="sidebar">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border)">
+        <span style="font-size:14px;font-weight:700;color:var(--ptv-red)">PTV</span>
+        <span style="font-size:13px;font-weight:600"> Discovery</span><br>
+        <span style="font-size:11px;color:var(--text2)">SE Path</span>
+      </div>
+      <div style="padding:12px 20px">
+        <div class="path-switch">
+          <button onclick="currentScreen='sales';render()">🎯 Sales</button>
+          <button class="active">🔧 SE</button>
+        </div>
+      </div>
+      <nav style="flex:1;padding:8px 0">
+        ${selectedAccount ? `<button onclick="selectedAccount=null;seView='accounts';render()" style="width:100%;padding:8px 20px;font-size:12px;color:var(--text2);background:none;border:none;border-bottom:1px solid var(--border);text-align:left;cursor:pointer;margin-bottom:8px">← Back to Accounts</button>
+        <div style="padding:4px 20px;font-size:13px;font-weight:600;color:var(--text)">${selectedAccount.name}</div>
+        <div style="margin-top:8px">
+          <button class="nav-item ${seView==='maturity'?'active':''}" onclick="seView='maturity';render()">📋 Maturity Grid</button>
+          <button class="nav-item ${seView==='se-session'?'active':''}" onclick="seView='se-session';render()">🎙 Technical Session</button>
+          <button class="nav-item ${seView==='export'?'active':''}" onclick="seView='export';render()">📤 Export</button>
+        </div>` : `
+        <button class="nav-item ${seView==='accounts'?'active':''}" onclick="seView='accounts';render()">📋 Accounts</button>`}
+        <div style="padding:16px 20px 4px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Tools</div>
+        <button class="nav-item ${seView==='dashboard'?'active':''}" onclick="seView='dashboard';render()">📈 SE Dashboard</button>
+      </nav>
+      <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">SE</div>
+        <div><div style="font-size:12px;font-weight:500;color:var(--text)">Solutions Engineer</div><div style="font-size:10px;color:var(--text3)">Pre-Sales</div></div>
+      </div>
+    </aside>`;
+}
+
+function renderSEAccounts() {
+  return `
+    <h1 style="font-size:20px;font-weight:600;margin-bottom:8px">Accounts — Implementation Readiness</h1>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Select an account to manage its OptiFlow Maturity Grid</p>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <input id="se-search" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--text);outline:none" placeholder="Search accounts..." />
+      <button onclick="showNewSEAccount=!showNewSEAccount;render()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer">+ New Account</button>
+    </div>
+    ${showNewSEAccount ? renderNewSEAccountForm() : ''}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${accounts.map(a => {
+        const or = overallReadiness(a.id);
+        return `<button onclick="selectedAccount=${JSON.stringify(a).replace(/"/g,'&quot;')};seView='maturity';render()" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:50%;background:${or>=40?'rgba(34,197,94,.15)':or>=20?'rgba(234,179,8,.15)':'rgba(239,68,68,.15)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${pctColor(or)};flex-shrink:0">${or}%</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:var(--text)">${a.name}</div>
+            <div style="font-size:12px;color:var(--text3)">${a.industry} · ${a.sessions} sessions</div>
+            <div style="display:flex;gap:4px;margin-top:6px">${[1,2,3,4,5,6].map(p => {
+              const pc = phaseCompletion(a.id, p);
+              return `<div style="flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden"><div style="height:100%;width:${pc.pct}%;background:${pctColor(pc.pct)};border-radius:2px"></div></div>`;
+            }).join('')}</div>
+          </div>
+          <span style="font-size:12px;color:var(--text3)">→</span>
+        </button>`;
+      }).join('')}
+    </div>`;
+}
+
+function renderMaturityGrid() {
+  const a = selectedAccount;
+  const or = overallReadiness(a.id);
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <h1 style="font-size:20px;font-weight:600">${a.name}</h1>
+        <p style="font-size:13px;color:var(--text2)">OptiFlow Maturity Grid — ${or}% overall readiness</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:48px;height:48px;border-radius:50%;background:${or>=40?'rgba(34,197,94,.15)':or>=20?'rgba(234,179,8,.15)':'rgba(239,68,68,.15)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:${pctColor(or)}">${or}%</div>
+      </div>
+    </div>
+    <div class="card" style="text-align:center;padding:20px">
+      <canvas id="spider-chart" width="400" height="400" style="max-width:100%;height:auto"></canvas>
+    </div>
+    ${PHASES.map(phase => {
+      const pc = phaseCompletion(a.id, phase.number);
+      const expanded = expandedPhases.has(phase.number);
+      return `<div class="phase">
+        <div class="phase-header" onclick="togglePhase(${phase.number})">
+          <span class="phase-icon">${phase.icon}</span>
+          <span class="phase-name">Phase ${phase.number}: ${phase.name}</span>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pc.pct}%;background:${pctColor(pc.pct)}"></div></div>
+          <span class="phase-pct" style="color:${pctColor(pc.pct)}">${pc.pct}%</span>
+          <span style="font-size:12px;color:var(--text3)">${expanded ? '▲' : '▼'}</span>
+        </div>
+        ${expanded ? `<div class="phase-body">
+          ${phase.items.map(item => {
+            const is = getItemStatus(a.id, item.code);
+            const statusIcon = is.status === 'completed' ? '✅' : is.status === 'in_progress' ? '🔄' : '❌';
+            return `<div class="grid-item">
+              <button class="status-btn ${is.status}" onclick="cycleStatus('${a.id}','${item.code}')" title="Click to cycle status">${statusIcon}</button>
+              <div class="item-content">
+                <span class="item-code">${item.code}</span>
+                <div class="item-label">${item.label}</div>
+                <div class="item-desc">${item.desc}</div>
+                <textarea class="item-notes" placeholder="Add notes..." onchange="saveNotes('${a.id}','${item.code}',this.value)">${is.notes || ''}</textarea>
+                ${is.completedAt ? `<div class="item-meta">✓ Completed ${new Date(is.completedAt).toLocaleDateString()}</div>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+          <div class="dod"><div class="dod-label">✓ Definition of Done</div>${phase.dod}</div>
+        </div>` : ''}
+      </div>`;
+    }).join('')}`;
+}
+
+function renderSEDashboard() {
+  return `
+    <h1 style="font-size:20px;font-weight:600;margin-bottom:8px">SE Dashboard</h1>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Implementation readiness across all accounts</p>
+    <div class="card" style="overflow-x:auto">
+      <table class="dash-table">
+        <thead><tr>
+          <th>Account</th>
+          ${PHASES.map(p => `<th>P${p.number}</th>`).join('')}
+          <th>Overall</th>
+        </tr></thead>
+        <tbody>
+          ${accounts.map(a => {
+            const or = overallReadiness(a.id);
+            return `<tr style="cursor:pointer" onclick="selectedAccount=${JSON.stringify(a).replace(/"/g,'&quot;')};seView='maturity';render()">
+              <td style="font-weight:500;color:var(--text)">${a.name}</td>
+              ${PHASES.map(p => {
+                const pc = phaseCompletion(a.id, p.number);
+                return `<td><span class="pct-badge" style="background:${pctColor(pc.pct)}20;color:${pctColor(pc.pct)}">${pc.pct}%</span></td>`;
+              }).join('')}
+              <td><span class="pct-badge" style="background:${pctColor(or)}20;color:${pctColor(or)};font-weight:700">${or}%</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderExport() {
+  const a = selectedAccount;
+  const or = overallReadiness(a.id);
+  let text = `=== OptiFlow Maturity Grid — ${a.name} ===\n`;
+  text += `Date: ${new Date().toLocaleDateString()}\nOverall Readiness: ${or}%\n\n`;
+  for (const phase of PHASES) {
+    const pc = phaseCompletion(a.id, phase.number);
+    text += `── Phase ${phase.number}: ${phase.name} (${pc.pct}%) ──\n`;
+    for (const item of phase.items) {
+      const is = getItemStatus(a.id, item.code);
+      const icon = is.status === 'completed' ? '✅' : is.status === 'in_progress' ? '🔄' : '❌';
+      text += `${icon} ${item.code} ${item.label}\n`;
+      if (is.notes) text += `   Notes: ${is.notes}\n`;
+    }
+    text += `\n`;
+  }
+  return `
+    <h1 style="font-size:20px;font-weight:600;margin-bottom:8px">Export — ${a.name}</h1>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Preview and export the maturity grid status</p>
+    <div class="card">
+      <textarea style="width:100%;min-height:400px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--text);line-height:1.6;resize:vertical;outline:none;font-family:Consolas,monospace">${text}</textarea>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onclick="navigator.clipboard.writeText(document.querySelector('textarea').value);toast('✓ Copied to clipboard')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer">📋 Copy</button>
+        <button onclick="const s=encodeURIComponent('OptiFlow Maturity Grid — ${a.name}');const b=encodeURIComponent(document.querySelector('textarea').value);window.open('mailto:?subject='+s+'&body='+b)" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer">📧 Email</button>
+      </div>
+    </div>`;
+}
+
+// ─── New Account Form ─────────────────────────────────────────────────────────
+
+let showNewSEAccount = false;
+
+const SE_SEGMENTS = [
+  { id: 'ThirdPartyLogistics', label: '3PL', icon: '🏭' },
+  { id: 'BuildingSupply', label: 'Building Supply', icon: '🏗️' },
+  { id: 'ManufacturingDistribution', label: 'Mfg & Distribution', icon: '⚙️' },
+  { id: 'RetailEcommerce', label: 'Retail', icon: '🛒' },
+  { id: 'FoodBeverageFMCG', label: 'Food & Bev', icon: '🥤' },
+  { id: 'HealthcarePharma', label: 'Healthcare', icon: '💊' },
+  { id: 'FieldServices', label: 'Field Services', icon: '🔧' },
+  { id: 'Other', label: 'Other', icon: '📦' },
+];
+
+let newAcctSeg = '';
+
+function renderNewSEAccountForm() {
+  return `
+    <div class="card" style="border-color:rgba(59,130,246,.3)">
+      <div class="card-title">Quick Account Setup</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Add a new customer account for OptiFlow implementation tracking.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div><label style="font-size:11px;color:var(--text3)">Company Name *</label><input id="new-acct-name" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text);outline:none;margin-top:4px" placeholder="e.g. Müller Logistics" /></div>
+        <div><label style="font-size:11px;color:var(--text3)">Contact Name</label><input id="new-acct-contact" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text);outline:none;margin-top:4px" placeholder="e.g. Hans Weber" /></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Industry Segment *</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:12px">
+        ${SE_SEGMENTS.map(s => `<button onclick="newAcctSeg='${s.id}';render()" style="display:flex;align-items:center;gap:6px;background:${newAcctSeg===s.id?'rgba(59,130,246,.1)':'var(--surface)'};border:1px solid ${newAcctSeg===s.id?'var(--accent)':'var(--border)'};border-radius:8px;padding:8px;cursor:pointer;font-size:11px;color:var(--text)">${s.icon} ${s.label}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="createSEAccount()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer">Create & Start Session 🎙</button>
+        <button onclick="showNewSEAccount=false;render()" style="background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer">Cancel</button>
+      </div>
+    </div>`;
+}
+
+function createSEAccount() {
+  const name = document.getElementById('new-acct-name')?.value?.trim();
+  if (!name) { toast('Company name is required'); return; }
+  const seg = SE_SEGMENTS.find(s => s.id === newAcctSeg);
+  const newAcct = { id: 'a' + Date.now(), name, industry: seg ? seg.label : 'Other', phase: 0, sessions: 0 };
+  accounts.unshift(newAcct);
+  selectedAccount = newAcct;
+  showNewSEAccount = false;
+  seView = 'se-session';
+  toast('✓ Account created — starting technical session');
+  render();
+}
+
+// ─── SE Technical Discovery Session ───────────────────────────────────────────
+
+const SE_QUESTIONS = [
+  { phase: 'Framework', text: 'What does your organization\'s vision for digital transformation in logistics look like?', note: 'Understand if leadership is aligned on the need for optimization technology.' },
+  { phase: 'Framework', text: 'Who will be the key planner working with OptiFlow day-to-day?', note: 'Identify the planner role — they need to be experienced and open to change.' },
+  { phase: 'Framework', text: 'Do you have a data steward who owns and manages your logistics data?', note: 'Data quality is the #1 success factor. No data steward = high risk.' },
+  { phase: 'Framework', text: 'What are the management KPIs you use to measure planning quality?', note: 'Without measurable metrics, you can\'t prove ROI or track improvement.' },
+  { phase: 'Framework', text: 'Is there active management support for this implementation?', note: 'Change management requires top-down support. Without it, adoption stalls.' },
+  { phase: 'Data Settings', text: 'What types of vehicles are in your fleet, and do they have different speed profiles?', note: 'Speed profiles are per-planning. Mixed fleets may need separate plannings.' },
+  { phase: 'Data Settings', text: 'How do you handle driver breaks and rest periods?', note: 'Break regulations vary by country. This affects route feasibility.' },
+  { phase: 'Data Settings', text: 'How reliable are your customer addresses and geocoordinates?', note: 'Dirty addresses = bad geocoding = wrong drive times. Customer must verify.' },
+  { phase: 'Data Settings', text: 'Is your routing model VRP (depot-based) or Pickup & Delivery?', note: 'VRP is more performant. P&D requires linked order pairs.' },
+  { phase: 'Data Settings', text: 'How is your cost structure set up — fixed day rates, per-km, or hybrid?', note: 'This is THE most important setting. Wrong cost structure = wrong optimization.' },
+  { phase: 'As-Is', text: 'Can you provide a complete dataset with planned routes, sequences, orders, and vehicles?', note: 'Need: service times, addresses, volumes, time windows, AS-IS vehicle assignments.' },
+  { phase: 'As-Is', text: 'Do you have a representative planning period we can use for calibration?', note: 'Pick a typical day, not the most extreme. All orders as they were at planning time.' },
+  { phase: 'As-Is', text: 'What planning rules does your team follow that might not add value?', note: 'Habits vs legacy rules vs necessary constraints. Challenge the habits.' },
+  { phase: 'As-Is', text: 'Have you validated that your current drive times match reality?', note: 'Calibrating drive times is critical for any credible business case.' },
+  { phase: 'To-Be', text: 'Which planning requirements can\'t be covered by existing OptiFlow functionality?', note: 'Identify gaps early. Workarounds vs features vs accept limitations.' },
+  { phase: 'To-Be', text: 'What is the estimated gain of planning with OptiFlow vs your current system?', note: 'The base case potential. Must be validated with a roughly feasible planning.' },
+  { phase: 'Operational', text: 'Is the planning team ready to take ownership of OptiFlow?', note: 'Consultants guide, customer drives. This transition is critical.' },
+  { phase: 'Operational', text: 'What does a typical day look like for your planner?', note: 'Under/overcapacity, order trickle-in, locking routes, dynamic replanning.' },
+  { phase: 'Operational', text: 'What API integrations are needed with your existing systems?', note: 'ERP, TMS, WMS connections. Missing API features = monetary & functional impact.' },
+  { phase: 'Go-Live', text: 'Are you ready to run OptiFlow in parallel with your current system?', note: 'Parallel planning is the final validation before going live.' },
+];
+
+let seSessionPhase = 'gdpr';
+let seQIdx = 0;
+let seTranscript = [];
+let seSessionScores = { Framework: 0, 'Data Settings': 0, 'As-Is': 0, 'To-Be': 0, Operational: 0, 'Go-Live': 0 };
+
+function renderSESession() {
+  const a = selectedAccount;
+  const q = SE_QUESTIONS[seQIdx % SE_QUESTIONS.length];
+
+  if (seSessionPhase === 'gdpr') {
+    return `
+      <h1 style="font-size:20px;font-weight:600;margin-bottom:8px">Technical Discovery Session</h1>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">${a.name}</p>
+      <div class="card" style="text-align:center;border-color:rgba(234,179,8,.3);background:linear-gradient(135deg,rgba(234,179,8,.05),rgba(239,68,68,.03))">
+        <div style="font-size:28px;margin-bottom:8px">⚖️</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px">Recording Consent Required</div>
+        <p style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:16px;max-width:400px;margin:0 auto 16px">Under GDPR, all parties must consent to being recorded.</p>
+        <div class="card" style="text-align:left;max-width:400px;margin:0 auto 16px">
+          <div style="font-size:10px;font-weight:600;color:var(--text3);margin-bottom:4px">Suggested script:</div>
+          <p style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic">"I'll be using an AI assistant to capture our technical discussion. It will record and transcribe. Is that OK?"</p>
+        </div>
+        <button onclick="seSessionPhase='active';render()" style="padding:10px 28px;font-size:12px;font-weight:500;color:#fff;background:var(--red);border:none;border-radius:8px;cursor:pointer">✓ All parties consent to recording</button>
+      </div>`;
+  }
+
+  if (seSessionPhase === 'active') {
+    return `
+      <h1 style="font-size:20px;font-weight:600;margin-bottom:8px">Technical Discovery — Q${seQIdx + 1}</h1>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">${a.name}</p>
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:8px 14px;margin-bottom:14px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--red)"></div>
+        <span style="font-size:13px;color:#fca5a5;font-weight:600;font-family:Consolas,monospace">● Recording</span>
+        <button onclick="seSessionPhase='ended';render()" style="margin-left:auto;background:var(--red);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer">End Session</button>
+      </div>
+      <div class="card">
+        <div style="max-height:100px;overflow-y:auto;font-size:12px;color:var(--text2);line-height:1.6">
+          ${seTranscript.length === 0 ? '<span style="color:var(--text3);font-style:italic">Listening... speak to see transcription here</span>' : seTranscript.map(t => '<div style="margin-bottom:4px">' + t + '</div>').join('')}
+        </div>
+      </div>
+      <div class="card">
+        <span style="display:inline-block;background:rgba(59,130,246,.15);color:#60a5fa;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-bottom:6px">${q.phase}</span>
+        <p style="font-size:14px;color:var(--text);margin-bottom:10px;line-height:1.5">${q.text}</p>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="font-size:10px;font-weight:600;color:var(--text3);margin-bottom:4px">💡 Why ask this</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">${q.note}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="acceptSEAnswer()" style="flex:1;background:var(--green);color:#fff;border:none;border-radius:6px;padding:8px 0;font-size:12px;font-weight:500;cursor:pointer">✓ Accept Answer</button>
+          <button onclick="seQIdx++;render()" style="flex:1;background:none;color:var(--text2);border:1px solid var(--border);border-radius:6px;padding:8px 0;font-size:12px;cursor:pointer">Skip →</button>
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Maturity Coverage</div>
+        ${Object.entries(seSessionScores).map(([k,v]) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="width:100px;font-size:12px;color:var(--text2)">${k}</span><div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.min(100,v)}%;background:${v>=60?'var(--green)':v>=30?'var(--accent)':'var(--red)'};border-radius:3px"></div></div><span style="width:24px;font-size:12px;color:var(--text3);text-align:right">${v}</span></div>`).join('')}
+      </div>`;
+  }
+
+  if (seSessionPhase === 'ended') {
+    return `
+      <h1 style="font-size:20px;font-weight:600;margin-bottom:8px">Session Complete</h1>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">${a.name} · ${seQIdx} questions</p>
+      <div class="card"><div class="card-title">📊 Maturity Coverage — End of Session</div>
+        ${Object.entries(seSessionScores).map(([k,v]) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="width:100px;font-size:12px;color:var(--text2)">${k}</span><div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.min(100,v)}%;background:${v>=60?'var(--green)':v>=30?'var(--accent)':'var(--red)'};border-radius:3px"></div></div><span style="width:24px;font-size:12px;color:var(--text3);text-align:right">${v}</span></div>`).join('')}
+      </div>
+      <div style="margin-top:16px;background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(139,92,246,.05));border:2px solid rgba(59,130,246,.3);border-radius:12px;padding:20px">
+        <div style="font-size:15px;font-weight:700;color:#60a5fa;margin-bottom:4px">🚀 What's Next?</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+          <button onclick="seView='maturity';render()" style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;text-align:left;font-size:13px">📋 <span><strong>Update Maturity Grid</strong><br><span style="font-size:11px;opacity:.8">Apply session findings to the checklist</span></span></button>
+          <button onclick="seView='export';render()" style="display:flex;align-items:center;gap:10px;padding:12px;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:8px;cursor:pointer;text-align:left;font-size:13px">📤 <span><strong>Export Report</strong><br><span style="font-size:11px;opacity:.8">Share findings with the team</span></span></button>
+          <button onclick="resetSESession()" style="display:flex;align-items:center;gap:10px;padding:12px;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:8px;cursor:pointer;text-align:left;font-size:13px">🎙 <span><strong>Start Another Session</strong><br><span style="font-size:11px;opacity:.8">Continue technical discovery</span></span></button>
+        </div>
+      </div>`;
+  }
+  return '';
+}
+
+function acceptSEAnswer() {
+  const q = SE_QUESTIONS[seQIdx % SE_QUESTIONS.length];
+  seSessionScores[q.phase] = Math.min(100, (seSessionScores[q.phase] || 0) + 15);
+  seTranscript.push('Q' + (seQIdx+1) + ': ' + q.text + ' — [Answer captured]');
+  seQIdx++;
+  toast('✓ +15 ' + q.phase);
+  render();
+}
+
+function resetSESession() {
+  seSessionPhase = 'gdpr';
+  seQIdx = 0;
+  seTranscript = [];
+  seSessionScores = { Framework: 0, 'Data Settings': 0, 'As-Is': 0, 'To-Be': 0, Operational: 0, 'Go-Live': 0 };
+  render();
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+
+function togglePhase(num) {
+  if (expandedPhases.has(num)) expandedPhases.delete(num);
+  else expandedPhases.add(num);
+  render();
+}
+
+function cycleStatus(accountId, code) {
+  const current = getItemStatus(accountId, code).status;
+  const next = current === 'not_started' ? 'in_progress' : current === 'in_progress' ? 'completed' : 'not_started';
+  const notes = getItemStatus(accountId, code).notes;
+  setItemState(accountId, code, next, notes);
+  toast(next === 'completed' ? '✅ Completed' : next === 'in_progress' ? '🔄 In Progress' : '❌ Reset');
+  render();
+}
+
+function saveNotes(accountId, code, notes) {
+  const status = getItemStatus(accountId, code).status;
+  setItemState(accountId, code, status, notes);
+}
+
+// ─── Spider Chart ─────────────────────────────────────────────────────────────
+
+function drawSpiderChart(canvasId, data) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2;
+  const r = Math.min(cx, cy) - 60;
+  const n = data.length;
+  const angleStep = (Math.PI * 2) / n;
+  const startAngle = -Math.PI / 2; // top
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Draw grid rings (20%, 40%, 60%, 80%, 100%)
+  for (let ring = 1; ring <= 5; ring++) {
+    const ringR = (r * ring) / 5;
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const angle = startAngle + i * angleStep;
+      const x = cx + Math.cos(angle) * ringR;
+      const y = cy + Math.sin(angle) * ringR;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(71,85,105,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Ring label
+    if (ring % 2 === 0) {
+      ctx.fillStyle = 'rgba(100,116,139,0.5)';
+      ctx.font = '10px Segoe UI, sans-serif';
+      ctx.fillText((ring * 20) + '%', cx + 4, cy - ringR + 12);
+    }
+  }
+
+  // Draw axis lines
+  for (let i = 0; i < n; i++) {
+    const angle = startAngle + i * angleStep;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+    ctx.strokeStyle = 'rgba(71,85,105,0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Draw data polygon (filled)
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const idx = i % n;
+    const angle = startAngle + idx * angleStep;
+    const val = (data[idx].pct / 100) * r;
+    const x = cx + Math.cos(angle) * val;
+    const y = cy + Math.sin(angle) * val;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(59,130,246,0.15)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(59,130,246,0.8)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Draw data points and labels
+  for (let i = 0; i < n; i++) {
+    const angle = startAngle + i * angleStep;
+    const val = (data[i].pct / 100) * r;
+    const px = cx + Math.cos(angle) * val;
+    const py = cy + Math.sin(angle) * val;
+
+    // Point
+    ctx.beginPath();
+    ctx.arc(px, py, 4, 0, Math.PI * 2);
+    const color = data[i].pct >= 70 ? '#22c55e' : data[i].pct >= 30 ? '#eab308' : '#ef4444';
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label
+    const labelR = r + 28;
+    const lx = cx + Math.cos(angle) * labelR;
+    const ly = cy + Math.sin(angle) * labelR;
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = Math.cos(angle) < -0.1 ? 'right' : Math.cos(angle) > 0.1 ? 'left' : 'center';
+    ctx.textBaseline = Math.sin(angle) < -0.1 ? 'bottom' : Math.sin(angle) > 0.1 ? 'top' : 'middle';
+    ctx.fillText(data[i].name, lx, ly);
+
+    // Percentage near the point
+    ctx.fillStyle = color;
+    ctx.font = 'bold 12px Segoe UI, sans-serif';
+    const pctR = val + 14;
+    const pctX = cx + Math.cos(angle) * pctR;
+    const pctY = cy + Math.sin(angle) * pctR;
+    ctx.fillText(data[i].pct + '%', pctX, pctY);
+  }
+
+  // Center readiness score
+  const avg = Math.round(data.reduce((s, d) => s + d.pct, 0) / data.length);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = avg >= 70 ? '#22c55e' : avg >= 30 ? '#eab308' : '#ef4444';
+  ctx.font = 'bold 24px Segoe UI, sans-serif';
+  ctx.fillText(avg + '%', cx, cy - 6);
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px Segoe UI, sans-serif';
+  ctx.fillText('READINESS', cx, cy + 12);
+}
+
+// Initial render
+render();
+</script>
+</body>
+</html>

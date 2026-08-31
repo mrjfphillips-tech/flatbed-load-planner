@@ -1,0 +1,536 @@
+// ─── Property-Based Tests for Rules Engine ───────────────────────────────────
+// Feature: flatbed-load-planner
+// Property 8: Hard constraint satisfaction in generated plans
+// Property 14: Warning severity classification mapping
+// Validates: Requirements 4.1, 4.2, 5.3, 12.2, 12.5
+
+import { describe, it, expect } from 'vitest';
+import * as fc from 'fast-check';
+import { evaluateAllRules, defaultRules } from './rules';
+import type { Rule, RuleContext, RuleResult, RuleEvaluationResult } from './rules';
+import { generateLoadPlan } from './planner';
+import type { PlanRequest } from './planner';
+import { calculateWeightMetrics } from './weight';
+import { calculateEquipmentCombination } from './equipment';
+import { arbitraryTrailerProfile, arbitraryTractorProfile } from './equipment.property.test';
+import { arbitrarySteelOrderLineItem } from './geometry.property.test';
+import type {
+  EquipmentCombination,
+  PlacedFreight,
+  RuleType,
+  SteelOrderLineItem,
+  TractorProfile,
+  TrailerProfile,
+} from './types';
+
+// ─── Custom Generators ───────────────────────────────────────────────────────
+
+/**
+ * Generates a set of 1–8 steel order line items for use in plan generation.
+ * Keeps item dimensions reasonable so the planner can successfully place them.
+ */
+function arbitraryFreightSet(): fc.Arbitrary<SteelOrderLineItem[]> {
+  return fc.array(arbitrarySteelOrderLineItem(), { minLength: 1, maxLength: 8 });
+}
+
+/**
+ * Generates an arbitrary RuleType from the three valid values.
+ */
+function arbitraryRuleType(): fc.Arbitrary<RuleType> {
+  return fc.constantFrom(
+    'hard_constraint' as RuleType,
+    'soft_preference' as RuleType,
+    'advisory' as RuleType
+  );
+}
+
+/**
+ * Generates a simple synthetic Rule that always fails, with a given type.
+ * Used for Property 14 to test the severity classification mapping.
+ */
+function makeFailingRule(ruleType: RuleType, id: string): Rule {
+  return {
+    id,
+    name: `Test ${ruleType} rule`,
+    type: ruleType,
+    description: `A test rule of type ${ruleType} that always fails`,
+    isApplicable: () => true,
+    evaluate: (ctx) => ({
+      passed: false,
+      ruleId: id,
+      ruleType,
+      severity: ruleType === 'hard_constraint' ? 'error' : ruleType === 'soft_preference' ? 'warning' : 'info',
+      message: `Test failure for ${ruleType}`,
+      affectedItems: ctx.placedFreight.map((f) => f.item.orderNumber),
+    }),
+  };
+}
+
+/**
+ * Generates a simple synthetic Rule that always passes, with a given type.
+ */
+function makePassingRule(ruleType: RuleType, id: string): Rule {
+  return {
+    id,
+    name: `Test passing ${ruleType} rule`,
+    type: ruleType,
+    description: `A test rule of type ${ruleType} that always passes`,
+    isApplicable: () => true,
+    evaluate: () => ({
+      passed: true,
+      ruleId: id,
+      ruleType,
+      severity: ruleType === 'hard_constraint' ? 'error' : ruleType === 'soft_preference' ? 'warning' : 'info',
+      message: `All good for ${ruleType}`,
+      affectedItems: [],
+    }),
+  };
+}
+
+/**
+ * Creates a minimal valid RuleContext for testing the severity mapping logic.
+ */
+function makeMinimalContext(): RuleContext {
+  const trailer: TrailerProfile = {
+    id: 'trailer-test',
+    name: 'Test 53ft',
+    lengthFt: 53,
+    deckWidthIn: 102,
+    deckHeightIn: 60,
+    maxGrossWeight: 80000,
+    tareWeight: 15000,
+    axleCount: 2,
+    axlePositions: [480, 528],
+    axleWeightRatings: [34000, 34000],
+    kingpinPosition: 36,
+    rearOverhangLimit: 48,
+    deckMaterial: 'steel',
+    stakePockets: [],
+    anchorPoints: [],
+    maxConcentratedLoadPSF: 800,
+  };
+
+  const tractor: TractorProfile = {
+    id: 'tractor-test',
+    name: 'Test Day Cab',
+    steerAxleRating: 12000,
+    driveAxleRating: 34000,
+    fifthWheelPosition: 240,
+    tareWeight: 18000,
+    driveAxleCount: 2,
+  };
+
+  const equipment: EquipmentCombination = {
+    tractorId: 'tractor-test',
+    trailerId: 'trailer-test',
+    availablePayload: 47000,
+    totalLegalGross: 80000,
+    perAxleLimits: { steer: 12000, drive: 34000, trailer: 34000 },
+  };
+
+  const weightMetrics = calculateWeightMetrics([], equipment, trailer, tractor);
+
+  return {
+    placedFreight: [],
+    equipment,
+    trailer,
+    tractor,
+    weightMetrics,
+  };
+}
+
+// ─── Property 8: Hard constraint satisfaction in generated plans ─────────────
+// For any generated load plan that reports success, evaluating all active hard
+// constraints against the placed freight SHALL produce zero violations.
+// This includes: no axle overweight, no gross weight exceedance, no concentrated
+// load exceedance, no boundary violations, and proper anti-roll securement for
+// cylindrical items.
+
+describe('Feature: flatbed-load-planner, Property 8: Hard constraint satisfaction in generated plans', () => {
+  /**
+   * **Validates: Requirements 5.3, 4.2**
+   *
+   * For any successful plan generated by the planning engine, re-evaluating
+   * all hard constraints on the placed freight should yield zero violations.
+   */
+  it('successful plans have zero hard constraint violations when rules are re-evaluated', () => {
+    fc.assert(
+      fc.property(
+        arbitraryTractorProfile(),
+        arbitraryTrailerProfile(),
+        arbitraryFreightSet(),
+        (tractor, trailer, items) => {
+          const equipment = calculateEquipmentCombination(tractor, trailer);
+
+          // Skip invalid equipment combinations
+          if (equipment.availablePayload <= 0) return;
+
+          const request: PlanRequest = {
+            items,
+            trailer,
+            tractor,
+            equipment,
+            rules: defaultRules,
+          };
+
+          const result = generateLoadPlan(request);
+
+          // We only check plans that report success AND can be approved
+          // (canApprove means the planner already evaluated hard constraints passed)
+          if (!result.success || result.placedFreight.length === 0) return;
+
+          // Re-evaluate hard constraints independently
+          const weightMetrics = calculateWeightMetrics(
+            result.placedFreight,
+            equipment,
+            trailer,
+            tractor
+          );
+
+          const ruleContext: RuleContext = {
+            placedFreight: result.placedFreight,
+            equipment,
+            trailer,
+            tractor,
+            weightMetrics,
+          };
+
+          const hardConstraints = defaultRules.filter((r) => r.type === 'hard_constraint');
+          const evaluation = evaluateAllRules(hardConstraints, ruleContext);
+
+          // Filter for hard constraint violations (failed with error severity)
+          const hardViolations = evaluation.results.filter(
+            (r) => !r.passed && r.ruleType === 'hard_constraint'
+          );
+
+          // If the plan reports canApprove, there must be zero hard violations
+          if (result.canApprove) {
+            expect(hardViolations).toHaveLength(0);
+          }
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  /**
+   * **Validates: Requirements 5.3, 4.2**
+   *
+   * For any plan where canApprove is true, the rules engine evaluateAllRules
+   * returns canApprove=true as well (consistency check).
+   */
+  it('canApprove flag in plan result is consistent with re-evaluated rule results', () => {
+    fc.assert(
+      fc.property(
+        arbitraryTractorProfile(),
+        arbitraryTrailerProfile(),
+        arbitraryFreightSet(),
+        (tractor, trailer, items) => {
+          const equipment = calculateEquipmentCombination(tractor, trailer);
+          if (equipment.availablePayload <= 0) return;
+
+          const request: PlanRequest = {
+            items,
+            trailer,
+            tractor,
+            equipment,
+            rules: defaultRules,
+          };
+
+          const result = generateLoadPlan(request);
+          if (!result.success || result.placedFreight.length === 0) return;
+
+          // Re-evaluate all rules
+          const weightMetrics = calculateWeightMetrics(
+            result.placedFreight,
+            equipment,
+            trailer,
+            tractor
+          );
+
+          const ruleContext: RuleContext = {
+            placedFreight: result.placedFreight,
+            equipment,
+            trailer,
+            tractor,
+            weightMetrics,
+          };
+
+          const evaluation = evaluateAllRules(defaultRules, ruleContext);
+
+          // The re-evaluated canApprove should match or be stricter than the plan's canApprove
+          // If the plan says canApprove=true, then rules must also say canApprove=true
+          if (result.canApprove) {
+            expect(evaluation.canApprove).toBe(true);
+          }
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  /**
+   * **Validates: Requirements 5.3**
+   *
+   * Hard constraint results in a successful plan's ruleResults should all have passed=true.
+   * The plan itself tracks its own rule evaluation; verify internal consistency.
+   */
+  it('plan ruleResults contain no failed hard constraints when canApprove is true', () => {
+    fc.assert(
+      fc.property(
+        arbitraryTractorProfile(),
+        arbitraryTrailerProfile(),
+        arbitraryFreightSet(),
+        (tractor, trailer, items) => {
+          const equipment = calculateEquipmentCombination(tractor, trailer);
+          if (equipment.availablePayload <= 0) return;
+
+          const request: PlanRequest = {
+            items,
+            trailer,
+            tractor,
+            equipment,
+            rules: defaultRules,
+          };
+
+          const result = generateLoadPlan(request);
+          if (!result.success) return;
+
+          if (result.canApprove) {
+            // No hard constraint violations in the plan's own rule results
+            const failedHardConstraints = result.ruleResults.filter(
+              (r) => !r.passed && r.ruleType === 'hard_constraint'
+            );
+            expect(failedHardConstraints).toHaveLength(0);
+          }
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+});
+
+// ─── Property 14: Warning severity classification mapping ────────────────────
+// Hard constraint violations → Error severity
+// Soft preference violations → Warning severity
+// Advisory rule notes → Info severity
+// canApprove = true iff zero Error-severity results where passed=false
+
+describe('Feature: flatbed-load-planner, Property 14: Warning severity classification mapping', () => {
+  /**
+   * **Validates: Requirements 12.2, 4.1**
+   *
+   * For any rule type, the severity field in the RuleResult maps correctly:
+   * hard_constraint → 'error', soft_preference → 'warning', advisory → 'info'
+   */
+  it('hard_constraint rules produce error severity, soft_preference produce warning, advisory produce info', () => {
+    const context = makeMinimalContext();
+
+    fc.assert(
+      fc.property(
+        arbitraryRuleType(),
+        fc.string({ minLength: 1, maxLength: 20 }),
+        (ruleType, ruleId) => {
+          // Test with a failing rule
+          const failingRule = makeFailingRule(ruleType, `test_${ruleId}`);
+          const evaluation = evaluateAllRules([failingRule], context);
+
+          expect(evaluation.results).toHaveLength(1);
+          const result = evaluation.results[0];
+
+          // Verify severity mapping
+          if (ruleType === 'hard_constraint') {
+            expect(result.severity).toBe('error');
+          } else if (ruleType === 'soft_preference') {
+            expect(result.severity).toBe('warning');
+          } else {
+            expect(result.severity).toBe('info');
+          }
+
+          // Verify ruleType is preserved
+          expect(result.ruleType).toBe(ruleType);
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  /**
+   * **Validates: Requirements 12.5**
+   *
+   * canApprove is true if and only if there are zero Error-severity results
+   * where passed=false.
+   */
+  it('canApprove is true iff zero error-severity results have passed=false', () => {
+    const context = makeMinimalContext();
+
+    fc.assert(
+      fc.property(
+        // Generate a mix of rules with random types and pass/fail states
+        fc.array(
+          fc.record({
+            ruleType: arbitraryRuleType(),
+            passes: fc.boolean(),
+          }),
+          { minLength: 1, maxLength: 10 }
+        ),
+        (ruleSpecs) => {
+          const rules: Rule[] = ruleSpecs.map((spec, i) => {
+            if (spec.passes) {
+              return makePassingRule(spec.ruleType, `rule_${i}`);
+            } else {
+              return makeFailingRule(spec.ruleType, `rule_${i}`);
+            }
+          });
+
+          const evaluation = evaluateAllRules(rules, context);
+
+          // Count error-severity failures
+          const errorFailures = evaluation.results.filter(
+            (r) => !r.passed && r.severity === 'error'
+          );
+
+          // canApprove iff zero error failures
+          if (errorFailures.length === 0) {
+            expect(evaluation.canApprove).toBe(true);
+          } else {
+            expect(evaluation.canApprove).toBe(false);
+          }
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  /**
+   * **Validates: Requirements 12.2, 12.5**
+   *
+   * When only soft_preference and advisory rules fail, canApprove remains true.
+   * Only hard_constraint failures can block approval.
+   */
+  it('soft preference and advisory failures do not block approval', () => {
+    const context = makeMinimalContext();
+
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.constantFrom('soft_preference' as RuleType, 'advisory' as RuleType),
+          { minLength: 1, maxLength: 8 }
+        ),
+        (ruleTypes) => {
+          // All rules fail, but none are hard constraints
+          const rules: Rule[] = ruleTypes.map((ruleType, i) =>
+            makeFailingRule(ruleType, `soft_adv_${i}`)
+          );
+
+          const evaluation = evaluateAllRules(rules, context);
+
+          // canApprove should be true since no hard constraint violations
+          expect(evaluation.canApprove).toBe(true);
+
+          // All results should have correct severity mapping
+          for (const result of evaluation.results) {
+            if (result.ruleType === 'soft_preference') {
+              expect(result.severity).toBe('warning');
+            } else if (result.ruleType === 'advisory') {
+              expect(result.severity).toBe('info');
+            }
+          }
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  /**
+   * **Validates: Requirements 12.5, 4.1**
+   *
+   * When at least one hard_constraint rule fails, canApprove is false,
+   * regardless of how many other rules pass.
+   */
+  it('any hard constraint failure blocks approval regardless of other passing rules', () => {
+    const context = makeMinimalContext();
+
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 5 }), // number of passing hard constraints
+        fc.integer({ min: 0, max: 5 }), // number of passing soft prefs
+        fc.integer({ min: 0, max: 5 }), // number of passing advisories
+        (passingHard, passingSoft, passingAdvisory) => {
+          const rules: Rule[] = [];
+
+          // Add passing rules
+          for (let i = 0; i < passingHard; i++) {
+            rules.push(makePassingRule('hard_constraint', `pass_hard_${i}`));
+          }
+          for (let i = 0; i < passingSoft; i++) {
+            rules.push(makePassingRule('soft_preference', `pass_soft_${i}`));
+          }
+          for (let i = 0; i < passingAdvisory; i++) {
+            rules.push(makePassingRule('advisory', `pass_adv_${i}`));
+          }
+
+          // Add one failing hard constraint
+          rules.push(makeFailingRule('hard_constraint', 'the_blocker'));
+
+          const evaluation = evaluateAllRules(rules, context);
+
+          // canApprove must be false because of the failing hard constraint
+          expect(evaluation.canApprove).toBe(false);
+
+          // The blocker result should have error severity
+          const blockerResult = evaluation.results.find((r) => r.ruleId === 'the_blocker');
+          expect(blockerResult).toBeDefined();
+          expect(blockerResult!.severity).toBe('error');
+          expect(blockerResult!.passed).toBe(false);
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  /**
+   * **Validates: Requirements 12.2**
+   *
+   * The severity classification is exhaustive: every rule result gets exactly
+   * one of the three severity levels and it always matches its ruleType.
+   */
+  it('every evaluated rule gets a severity that matches its type classification', () => {
+    const context = makeMinimalContext();
+
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            ruleType: arbitraryRuleType(),
+            passes: fc.boolean(),
+          }),
+          { minLength: 1, maxLength: 15 }
+        ),
+        (ruleSpecs) => {
+          const rules: Rule[] = ruleSpecs.map((spec, i) => {
+            if (spec.passes) {
+              return makePassingRule(spec.ruleType, `rule_${i}`);
+            } else {
+              return makeFailingRule(spec.ruleType, `rule_${i}`);
+            }
+          });
+
+          const evaluation = evaluateAllRules(rules, context);
+
+          // Every result must have a valid severity
+          for (const result of evaluation.results) {
+            expect(['error', 'warning', 'info']).toContain(result.severity);
+
+            // Severity must match the classification mapping
+            const expectedSeverity =
+              result.ruleType === 'hard_constraint' ? 'error' :
+              result.ruleType === 'soft_preference' ? 'warning' : 'info';
+            expect(result.severity).toBe(expectedSeverity);
+          }
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+});
