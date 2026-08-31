@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1720000000000,
-      "tag": "0000_setup_extensions",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1720000001000,
-      "tag": "0001_row_level_security",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1785790632751,
-      "tag": "0002_abandoned_thunderball",
+      "when": 1788205292480,
+      "tag": "0000_powerful_rockslide",
       "breakpoints": true
     }
   ]
