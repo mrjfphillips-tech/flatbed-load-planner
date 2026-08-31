@@ -4,7 +4,7 @@ import * as schema from './schema/index';
 
 const connectionString =
   process.env.DATABASE_URL ||
-  'postgres://ptv_coach:ptv_coach_dev@localhost:5432/ptv_discovery_coach';
+  'postgres://optiflow:optiflow_dev@localhost:5432/optiflow_load_planner';
 
 // Connection for queries (pooled)
 const queryClient = postgres(connectionString);

@@ -10,7 +10,7 @@
  * Requirements: 5.1, 20.1, 20.2
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PlanRequest, PlanResult } from '@ptv-discovery-coach/shared';
+import type { PlanRequest } from '@ptv-discovery-coach/shared';
 import type {
   PlannerState,
   WorkerRequest,

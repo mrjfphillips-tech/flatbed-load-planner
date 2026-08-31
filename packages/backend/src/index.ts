@@ -1,6 +1,17 @@
-// Entry point for the PTV Discovery Coach backend.
-// When run directly, starts the server. Also re-exports buildApp for testing/programmatic use.
+// Entry point for the OptiFlow Flatbed Load Planner backend.
 export { buildApp } from './app.js';
 export type { AppOptions } from './app.js';
-export { authenticateHook, requireRole, requireAdmin, requireRepOrAdmin, requireManagerOrAdmin, requireAnyRole, getUserId, getUserRole } from './middleware/auth.js';
-export type { JwtPayload } from './middleware/auth.js';
+export {
+  flatbedAuthenticate,
+  requireFlatbedRole,
+  requireFlatbedPermission,
+  requireFlatbedAdmin,
+  requireFlatbedPlanner,
+  requireFlatbedSupervisor,
+  getFlatbedUserId,
+  getFlatbedUserRoles,
+  isFlatbedAdmin,
+  getEffectivePermissions,
+  hasPermission,
+} from './middleware/flatbed-auth.js';
+export type { FlatbedJwtPayload, FlatbedRole, FlatbedAction } from './middleware/flatbed-auth.js';

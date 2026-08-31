@@ -9,7 +9,7 @@ async function start() {
 
   try {
     await app.listen({ port: PORT, host: HOST });
-    console.log(`PTV Discovery Coach API listening on ${HOST}:${PORT}`);
+    console.log(`OptiFlow Load Planner API listening on ${HOST}:${PORT}`);
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);

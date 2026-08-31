@@ -1,5 +1,0 @@
-# Place WASM binaries here before building:
-# - whisper.wasm
-# - ggml-base.en.bin
-# - tesseract-core.wasm
-# - eng.traineddata
