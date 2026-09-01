@@ -10,6 +10,7 @@ import { flatbedRulesRoutes } from './routes/flatbedRules.js';
 import { flatbedExportRoutes } from './routes/flatbedExport.js';
 import { flatbedShareRoutes } from './routes/flatbedShare.js';
 import { flatbedVerificationRoutes } from './routes/flatbedVerification.js';
+import { loadDiagramRoutes } from './routes/loadDiagram.js';
 import { registerErrorHandler } from './middleware/errorHandler.js';
 import { type FlatbedJwtPayload } from './middleware/flatbed-auth.js';
 
@@ -80,6 +81,7 @@ export async function buildApp(opts: AppOptions = {}): Promise<FastifyInstance> 
   await app.register(flatbedExportRoutes, { prefix: '/api/flatbed/plans' });
   await app.register(flatbedShareRoutes, { prefix: '/api/flatbed' });
   await app.register(flatbedVerificationRoutes, { prefix: '/api/flatbed/verification' });
+  await app.register(loadDiagramRoutes, { prefix: '/api/load-diagram' });
 
   return app;
 }

@@ -4,6 +4,16 @@
 
 The Load Diagram Generator is a new module added to the existing ptv-discovery-coach monorepo, leveraging the established Fastify backend, React frontend, and PostgreSQL database. It provides an end-to-end workflow where planners upload Excel files, the system computes optimal 3D packing arrangements, and produces visual loading diagrams for warehouse distribution.
 
+### Unit of Measure Strategy
+
+The system supports both metric (mm/kg) and imperial (in/lb) units. To keep the packing engine, constraint validator, and persistence layer simple and unambiguous, the design uses a **canonical-internal-unit** approach:
+
+- All stored and computed values use **canonical units: millimeters for length and kilograms for weight**. The packing engine, constraint validator, and database only ever deal with canonical units.
+- The `UnitSystem` (`'metric' | 'imperial'`) is a property of input (Excel upload, trailer profile entry) and output (display, diagram export), not of computation.
+- Conversion happens at the boundaries: the Excel parser converts imperial input to canonical on ingest; the frontend and diagram generator convert canonical to the selected `UnitSystem` for display/export.
+- Conversion uses exact factors (1 in = 25.4 mm, 1 lb = 0.45359237 kg). A round-trip (canonical → display unit → canonical) is preserved within display rounding tolerance.
+- Both the source `UnitSystem` (as uploaded) and the display `UnitSystem` (for output) are recorded on the load plan so diagrams can be regenerated in the intended units.
+
 ## Architecture
 
 ### High-Level Architecture
@@ -64,12 +74,14 @@ import { pgTable, uuid, text, integer, real, boolean, timestamp, jsonb } from 'd
 export const trailerProfiles = pgTable('trailer_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  internalLength: integer('internal_length_mm').notNull(), // mm
-  internalWidth: integer('internal_width_mm').notNull(),   // mm
-  internalHeight: integer('internal_height_mm').notNull(), // mm
-  maxPayloadWeight: real('max_payload_weight_kg').notNull(), // kg
+  // Canonical storage: always mm / kg regardless of entry unit system
+  internalLength: integer('internal_length_mm').notNull(), // mm (canonical)
+  internalWidth: integer('internal_width_mm').notNull(),   // mm (canonical)
+  internalHeight: integer('internal_height_mm').notNull(), // mm (canonical)
+  maxPayloadWeight: real('max_payload_weight_kg').notNull(), // kg (canonical)
   axleCount: integer('axle_count').notNull(),
-  axleWeightLimits: jsonb('axle_weight_limits').$type<number[]>().notNull(), // kg per axle
+  axleWeightLimits: jsonb('axle_weight_limits').$type<number[]>().notNull(), // kg per axle (canonical)
+  displayUnitSystem: text('display_unit_system').$type<UnitSystem>().notNull().default('metric'), // 'metric' | 'imperial' — preferred display unit for this profile
   doorConfig: jsonb('door_config').$type<DoorConfig>().default({ rear: true, sideLeft: false, sideRight: false }),
   isTemplate: boolean('is_template').default(false),
   createdBy: text('created_by'),
@@ -82,7 +94,9 @@ export const loadPlans = pgTable('load_plans', {
   trailerProfileId: uuid('trailer_profile_id').references(() => trailerProfiles.id).notNull(),
   name: text('name').notNull(),
   status: text('status').notNull().default('draft'), // draft | computed | reviewed | finalized
-  totalWeight: real('total_weight_kg'),
+  sourceUnitSystem: text('source_unit_system').$type<UnitSystem>().notNull().default('metric'), // unit system of the uploaded data
+  displayUnitSystem: text('display_unit_system').$type<UnitSystem>().notNull().default('metric'), // unit system for display/export
+  totalWeight: real('total_weight_kg'), // kg (canonical)
   volumeUtilization: real('volume_utilization_percent'),
   axleWeights: jsonb('axle_weights').$type<number[]>(),
   itemCount: integer('item_count'),
@@ -135,23 +149,29 @@ export const planHistory = pgTable('plan_history', {
 ```typescript
 // packages/shared/src/load-diagram/types.ts
 
+export type UnitSystem = 'metric' | 'imperial';
+
+// Canonical internal units are always millimeters and kilograms.
+// UnitSystem only governs how values are entered (Excel/UI) and displayed (UI/PDF).
+
 export interface DoorConfig {
   rear: boolean;
   sideLeft: boolean;
   sideRight: boolean;
-  sideLeftPosition?: number; // mm from front
+  sideLeftPosition?: number; // mm from front (canonical)
   sideRightPosition?: number;
 }
 
 export interface TrailerProfile {
   id: string;
   name: string;
-  internalLength: number; // mm
-  internalWidth: number;
-  internalHeight: number;
-  maxPayloadWeight: number; // kg
+  internalLength: number; // mm (canonical)
+  internalWidth: number;  // mm (canonical)
+  internalHeight: number; // mm (canonical)
+  maxPayloadWeight: number; // kg (canonical)
   axleCount: number;
-  axleWeightLimits: number[]; // kg per axle
+  axleWeightLimits: number[]; // kg per axle (canonical)
+  displayUnitSystem: UnitSystem; // preferred display units for this profile
   doorConfig: DoorConfig;
   isTemplate: boolean;
 }
@@ -160,10 +180,10 @@ export interface LoadItem {
   id: string;
   itemId: string;
   description?: string;
-  length: number; // mm
-  width: number;
-  height: number;
-  weight: number; // kg
+  length: number; // mm (canonical)
+  width: number;  // mm (canonical)
+  height: number; // mm (canonical)
+  weight: number; // kg (canonical)
   quantity: number;
   stackabilityClass?: string;
   maxStackWeight?: number;
@@ -187,9 +207,11 @@ export interface LoadPlan {
   id: string;
   trailerProfile: TrailerProfile;
   items: PlacedItem[];
-  totalWeight: number;
+  totalWeight: number; // kg (canonical)
   volumeUtilization: number;
-  axleWeights: number[];
+  axleWeights: number[]; // kg (canonical)
+  sourceUnitSystem: UnitSystem; // unit system the data was uploaded in
+  displayUnitSystem: UnitSystem; // unit system used for display/export
   status: 'draft' | 'computed' | 'reviewed' | 'finalized';
   overflowItems?: LoadItem[]; // items that didn't fit
 }
@@ -211,18 +233,20 @@ export interface ValidationError {
 }
 
 export interface ExcelParseResult {
-  items: LoadItem[];
+  items: LoadItem[]; // dimensions/weights converted to canonical units
+  detectedUnitSystem: UnitSystem; // unit system detected from the uploaded file
   errors: ValidationError[];
   summary: {
     totalItems: number;
-    totalWeight: number;
-    totalVolume: number; // cubic mm
+    totalWeight: number; // kg (canonical)
+    totalVolume: number; // cubic mm (canonical)
   };
 }
 
 export interface DiagramExportOptions {
   format: 'pdf' | 'png';
   paperSize: 'A3' | 'A4';
+  unitSystem: UnitSystem; // unit system for all dimensions/weights rendered in the export
   includeChecklist: boolean;
   includeSummary: boolean;
   views: ('topDown' | 'sideView' | 'rearView')[];
@@ -231,22 +255,61 @@ export interface DiagramExportOptions {
 
 ## Component Design
 
+### Shared Components
+
+#### Unit Conversion & Formatting (`packages/shared/src/load-diagram/units.ts`)
+
+The single source of truth for converting between canonical units (mm/kg) and the metric/imperial display units. Used by both backend (Excel parser, PDF generator) and frontend (UI display, editor) so conversion behavior is identical everywhere.
+
+Responsibilities:
+- Convert length and weight between canonical units and a given `UnitSystem`
+- Format canonical values as unit-labeled display strings (e.g., `"1200 mm"` / `"47.2 in"`, `"850 kg"` / `"1874 lb"`)
+- Provide the column-name sets and unit labels for each `UnitSystem`
+
+Constants and key functions:
+```typescript
+export const MM_PER_INCH = 25.4;          // exact
+export const KG_PER_POUND = 0.45359237;   // exact
+
+// Canonical (mm/kg) -> display unit value
+lengthFromCanonical(mm: number, unit: UnitSystem): number       // mm or in
+weightFromCanonical(kg: number, unit: UnitSystem): number       // kg or lb
+
+// Display unit value -> canonical (mm/kg)
+lengthToCanonical(value: number, unit: UnitSystem): number      // -> mm
+weightToCanonical(value: number, unit: UnitSystem): number      // -> kg
+
+// Unit-labeled display strings for diagrams/UI
+formatLength(mm: number, unit: UnitSystem, precision?: number): string
+formatWeight(kg: number, unit: UnitSystem, precision?: number): string
+
+// Labels used in headers and diagram annotations
+lengthUnitLabel(unit: UnitSystem): 'mm' | 'in'
+weightUnitLabel(unit: UnitSystem): 'kg' | 'lb'
+```
+
+Design notes:
+- All packing math, constraint checks, and DB values stay in canonical units. Conversion happens only at ingest (imperial → canonical) and at display/export (canonical → selected unit).
+- A property test asserts round-trip stability: `lengthToCanonical(lengthFromCanonical(mm, u), u) ≈ mm` within tolerance for both unit systems (same for weight).
+
 ### Backend Components
 
 #### 1. Excel Parser Service (`packages/backend/src/load-diagram/services/excelParser.ts`)
 
 Responsibilities:
 - Parse .xlsx and .xls files using SheetJS
+- Detect the file's `UnitSystem` (declared cell/column or by which dimension columns are present) and reject files that mix metric and imperial columns
 - Validate column presence and data types
-- Convert raw rows into `LoadItem[]`
+- Convert raw rows into `LoadItem[]`, converting imperial values to canonical units (mm/kg) via the shared `units` module
 - Generate validation errors with row-level detail
-- Produce parse summary
+- Produce parse summary (in canonical units) and report the detected `UnitSystem`
 
 Key functions:
 ```typescript
 parseExcelFile(buffer: Buffer): ExcelParseResult
-validateRow(row: Record<string, unknown>, rowIndex: number): ValidationError[]
-downloadTemplate(): Buffer
+detectUnitSystem(sheet: WorkSheet): UnitSystem  // throws/flags on mixed units
+validateRow(row: Record<string, unknown>, rowIndex: number, unitSystem: UnitSystem): ValidationError[]
+downloadTemplate(unitSystem: UnitSystem): Buffer  // metric or imperial template variant
 ```
 
 #### 2. Packing Engine (`packages/backend/src/load-diagram/services/packingEngine.ts`)
@@ -296,6 +359,7 @@ Responsibilities:
 - Render top-down and side-view representations using PDFKit canvas primitives
 - Apply color coding by delivery stop
 - Include summary statistics and loading checklist
+- Convert canonical values to the export's `UnitSystem` and label every dimension/weight with its unit via the shared `units` module
 - Handle A3/A4 scaling
 
 Key functions:
@@ -453,8 +517,9 @@ For a 2-axle trailer (front axle at position Af, rear axle at Ar):
 ```
 packages/
 ├── shared/src/load-diagram/
-│   ├── types.ts                    # Shared TypeScript interfaces
-│   ├── constants.ts                # Excel column definitions, default values
+│   ├── types.ts                    # Shared TypeScript interfaces (incl. UnitSystem)
+│   ├── constants.ts                # Excel column definitions (metric + imperial), default values
+│   ├── units.ts                    # Unit conversion & display formatting (canonical <-> metric/imperial)
 │   └── validation.ts               # Shared validation logic
 ├── backend/src/load-diagram/
 │   ├── routes.ts                   # Fastify route definitions
@@ -497,7 +562,8 @@ packages/
 
 ### Property-Based Tests (fast-check)
 
-1. **Excel Parser Round-Trip**: For all valid LoadItem arrays, exporting to Excel template format then re-parsing produces an equivalent item set.
+1. **Excel Parser Round-Trip**: For all valid LoadItem arrays and either UnitSystem, exporting to the matching Excel template format then re-parsing produces an equivalent item set with the same detected UnitSystem.
+1a. **Unit Conversion Round-Trip**: For any canonical length/weight, converting to a UnitSystem and back is preserved within display rounding tolerance, for both metric and imperial.
 2. **Packing Engine Invariants**: For any computed LoadPlan, no two items overlap in 3D space, all items are within trailer bounds, and total placed weight ≤ max payload.
 3. **Constraint Validator Consistency**: For any placement flagged as valid by the validator, re-validating the full plan still shows no violations.
 4. **Weight Distribution Conservation**: Sum of axle weights equals total item weight (conservation of mass).

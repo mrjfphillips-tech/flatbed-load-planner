@@ -8,3 +8,6 @@ export * from './flatbed-load-plans';
 export * from './flatbed-plan-items';
 export * from './flatbed-verification';
 export * from './flatbed-rules';
+
+// ─── Load Diagram Generator Schema ──────────────────────────────────────────────
+export * from './load-diagram';

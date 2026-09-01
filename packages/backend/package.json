@@ -16,7 +16,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed:flatbed": "tsx src/db/seed-flatbed-templates.ts"
+    "db:seed:flatbed": "tsx src/db/seed-flatbed-templates.ts",
+    "db:seed:load-diagram": "tsx src/db/seed-load-diagram-templates.ts"
   },
   "dependencies": {
     "@azure/search-documents": "^13.0.0",

@@ -10,6 +10,9 @@ const FlatbedPlannerPage = React.lazy(() =>
 const FleetPlannerPage = React.lazy(() =>
   import('./pages/FleetPlannerPage').then((m) => ({ default: m.FleetPlannerPage }))
 );
+const LoadDiagramPage = React.lazy(() =>
+  import('./pages/LoadDiagramPage').then((m) => ({ default: m.LoadDiagramPage }))
+);
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -43,6 +46,14 @@ const router = createBrowserRouter([
     element: (
       <SuspenseWrapper>
         <FleetPlannerPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    path: '/load-diagram',
+    element: (
+      <SuspenseWrapper>
+        <LoadDiagramPage />
       </SuspenseWrapper>
     ),
   },

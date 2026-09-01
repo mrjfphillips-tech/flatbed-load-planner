@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Load Diagram Generator is an add-on tool for PTV OptiFlow that automates the creation of visual trailer loading plans from Excel-based line-item data. Warehouse planners upload an Excel file containing item dimensions, weights, and constraints; the system processes this data through a 3D bin-packing algorithm and produces a printable/distributable loading diagram showing exact pallet placement, load sequence, and spatial arrangement within the trailer. The goal is to maximize trailer capacity utilization, enforce real-world constraints (stackability, weight distribution, axle limits), and give warehouse teams clear, visual loading instructions.
+The Load Diagram Generator is an add-on tool for PTV OptiFlow that automates the creation of visual trailer loading plans from Excel-based line-item data. Warehouse planners upload an Excel file containing item dimensions, weights, and constraints; the system processes this data through a 3D bin-packing algorithm and produces a printable/distributable loading diagram showing exact pallet placement, load sequence, and spatial arrangement within the trailer. The goal is to maximize trailer capacity utilization, enforce real-world constraints (stackability, weight distribution, axle limits), and give warehouse teams clear, visual loading instructions. The tool supports both metric (mm/kg) and imperial (in/lb) units of measure throughout data entry, computation, and output so it can be used across European and North American operations.
 
 ## Glossary
 
@@ -18,6 +18,7 @@ The Load Diagram Generator is an add-on tool for PTV OptiFlow that automates the
 - **Load_Sequence**: The order in which items should be physically loaded into the trailer, typically reverse of delivery sequence (last delivery loaded first).
 - **Planner**: The user role responsible for uploading data, configuring trailer profiles, reviewing load plans, and distributing diagrams to the warehouse team.
 - **Warehouse_Operator**: The end recipient of the printed/distributed load diagram who physically loads the trailer according to the plan.
+- **Unit_System**: The system of measurement used for entering and displaying dimensions and weights. Two systems are supported: `metric` (millimeters for length, kilograms for weight) and `imperial` (inches for length, pounds for weight). Values are converted to a single canonical internal representation for all computation, independent of the Unit_System chosen for input or display.
 
 ## Requirements
 
@@ -28,7 +29,7 @@ The Load Diagram Generator is an add-on tool for PTV OptiFlow that automates the
 #### Acceptance Criteria
 
 1. WHEN a Planner uploads an Excel file, THE Excel_Parser SHALL accept files in .xlsx and .xls format up to 10MB in size.
-2. WHEN a valid Excel file is uploaded, THE Excel_Parser SHALL extract item records containing: item ID, description, length (mm), width (mm), height (mm), weight (kg), quantity, stackability class, and delivery stop number.
+2. WHEN a valid Excel file is uploaded, THE Excel_Parser SHALL extract item records containing: item ID, description, length, width, height, weight, quantity, stackability class, and delivery stop number, interpreting dimension and weight values according to the file's declared Unit_System (metric or imperial).
 3. IF an uploaded file is missing required columns, THEN THE Excel_Parser SHALL return a validation error listing all missing column names.
 4. IF an uploaded file contains rows with invalid data types or out-of-range values, THEN THE Excel_Parser SHALL flag each invalid row with a specific error description and row number.
 5. WHEN validation completes successfully, THE Excel_Parser SHALL display a summary showing total item count, total weight, and total volume to the Planner for confirmation.
@@ -39,8 +40,8 @@ The Load Diagram Generator is an add-on tool for PTV OptiFlow that automates the
 
 #### Acceptance Criteria
 
-1. THE Load_Diagram_Generator SHALL allow the Planner to create Trailer_Profile records containing: internal length (mm), internal width (mm), internal height (mm), maximum payload weight (kg), number of axles, and axle weight limits (kg per axle).
-2. THE Load_Diagram_Generator SHALL provide a library of pre-configured Trailer_Profile templates for common European trailer types (standard 13.6m curtainsider, box trailer, mega trailer).
+1. THE Load_Diagram_Generator SHALL allow the Planner to create Trailer_Profile records containing: internal length, internal width, internal height, maximum payload weight, number of axles, and axle weight limits, entered in the Planner's selected Unit_System (metric or imperial).
+2. THE Load_Diagram_Generator SHALL provide a library of pre-configured Trailer_Profile templates for common European trailer types (standard 13.6m curtainsider, box trailer, mega trailer) and common North American trailer types (53 ft dry van, 48 ft flatbed), with each template's dimensions displayed in its native Unit_System.
 3. WHEN a Planner selects a Trailer_Profile, THE Load_Diagram_Generator SHALL use that profile's dimensions and constraints for all subsequent packing calculations.
 4. WHERE a Planner requires custom door placement, THE Load_Diagram_Generator SHALL allow configuration of rear-door and side-door loading positions on the Trailer_Profile.
 
@@ -68,7 +69,7 @@ The Load Diagram Generator is an add-on tool for PTV OptiFlow that automates the
 2. WHEN a Load_Plan is computed, THE Diagram_Renderer SHALL generate a side-view (profile) showing vertical stacking and height utilization.
 3. THE Diagram_Renderer SHALL color-code items by delivery stop number to distinguish loading groups visually.
 4. THE Diagram_Renderer SHALL annotate each item placement with the Load_Sequence number indicating physical loading order.
-5. THE Diagram_Renderer SHALL display summary statistics on the diagram: total weight, volume utilization percentage, and weight per axle.
+5. THE Diagram_Renderer SHALL display summary statistics on the diagram: total weight, volume utilization percentage, and weight per axle, with all dimensions and weights formatted in the Unit_System selected for the Load_Plan and each value labeled with its unit (e.g., "mm"/"kg" or "in"/"lb").
 6. WHEN a Planner requests export, THE Diagram_Renderer SHALL produce output in PDF format suitable for A3 or A4 printing at warehouse scale.
 7. WHERE an interactive viewing mode is enabled, THE Diagram_Renderer SHALL provide a 3D rotatable view of the loaded trailer in the web browser.
 
@@ -123,8 +124,22 @@ The Load Diagram Generator is an add-on tool for PTV OptiFlow that automates the
 
 #### Acceptance Criteria
 
-1. THE Load_Diagram_Generator SHALL provide a downloadable Excel template file with pre-defined column headers and data validation rules.
-2. THE Excel_Parser SHALL accept the following columns: Item_ID, Description, Length_mm, Width_mm, Height_mm, Weight_kg, Quantity, Stackability_Class, Max_Stack_Weight_kg, Delivery_Stop, Temperature_Zone, and Floor_Only_Flag.
-3. WHEN a Planner downloads the template, THE Load_Diagram_Generator SHALL include an instruction sheet within the Excel workbook explaining each column and valid values.
-4. THE Excel_Parser SHALL parse the template, format the data, and produce an equivalent structured data object (round-trip property: export template with data → re-upload → identical Load_Item set).
+1. THE Load_Diagram_Generator SHALL provide a downloadable Excel template file with pre-defined column headers and data validation rules, offering both a metric and an imperial variant of the template.
+2. THE Excel_Parser SHALL accept metric dimension/weight columns (Length_mm, Width_mm, Height_mm, Weight_kg, Max_Stack_Weight_kg) and imperial dimension/weight columns (Length_in, Width_in, Height_in, Weight_lb, Max_Stack_Weight_lb), in addition to the unit-independent columns: Item_ID, Description, Quantity, Stackability_Class, Delivery_Stop, Temperature_Zone, and Floor_Only_Flag.
+3. THE Excel_Parser SHALL determine each file's Unit_System from a declared Unit_System cell/column or by detecting whether metric or imperial dimension columns are present, and IF both metric and imperial dimension columns are present in the same file, THEN THE Excel_Parser SHALL return a validation error requiring a single consistent Unit_System.
+4. WHEN a Planner downloads the template, THE Load_Diagram_Generator SHALL include an instruction sheet within the Excel workbook explaining each column, its expected Unit_System, and valid values.
+5. THE Excel_Parser SHALL parse the template, format the data, and produce an equivalent structured data object (round-trip property: export template with data → re-upload → identical Load_Item set), preserving the original Unit_System.
 
+
+### Requirement 10: Unit of Measure Support (Metric and Imperial)
+
+**User Story:** As a Planner, I want to work in either metric or imperial units, so that the tool fits my region's conventions and the source data I already have.
+
+#### Acceptance Criteria
+
+1. THE Load_Diagram_Generator SHALL support two Unit_Systems: metric (millimeters, kilograms) and imperial (inches, pounds), and SHALL allow the Planner to select the active Unit_System for data entry and display.
+2. THE Load_Diagram_Generator SHALL store all dimension and weight values internally in a single canonical unit (millimeters and kilograms) regardless of the Unit_System used for input, and SHALL convert to the selected Unit_System only for display and export.
+3. WHEN converting between Unit_Systems, THE Load_Diagram_Generator SHALL use exact conversion factors (1 in = 25.4 mm; 1 lb = 0.45359237 kg) so that a value converted to another Unit_System and back is preserved within display rounding tolerance.
+4. WHEN the Planner changes the active Unit_System, THE Load_Diagram_Generator SHALL re-display all existing dimensions, weights, and summary statistics in the newly selected Unit_System without altering the underlying canonical values or the computed Load_Plan.
+5. WHERE a Trailer_Profile and uploaded Load_Item data use different Unit_Systems, THE Load_Diagram_Generator SHALL normalize both to the canonical unit before packing so that mixed-source inputs compute correctly.
+6. THE Diagram_Renderer SHALL label every dimension and weight shown on diagrams, checklists, and exports with an explicit unit symbol matching the selected Unit_System.
