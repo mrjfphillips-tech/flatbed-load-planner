@@ -68,7 +68,7 @@ export function DiagramViewer() {
 
   // Base scale so the trailer fits the canvas (before user zoom).
   const baseScale = useMemo(() => {
-    if (!plan) return 1;
+    if (!plan?.trailerProfile) return 1;
     const t = plan.trailerProfile;
     const across = view === 'topDown' ? t.internalWidth : t.internalHeight;
     const sx = (CANVAS_W - 2 * PAD) / t.internalLength;
@@ -182,7 +182,7 @@ export function DiagramViewer() {
   if (!planId) return <p className="text-sm text-gray-500">No plan computed yet.</p>;
   if (loading) return <p className="text-sm text-gray-500">Loading diagram…</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
-  if (!plan) return null;
+  if (!plan || !plan.trailerProfile) return null;
 
   const stops = distinctStops(plan.items);
 

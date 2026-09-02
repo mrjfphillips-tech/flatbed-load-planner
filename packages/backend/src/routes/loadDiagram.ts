@@ -171,11 +171,40 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(ldLoadPlans.id, request.params.id))
       .limit(1);
     if (!plan) return reply.status(404).send({ error: 'Load plan not found.' });
+
+    const [trailer] = await db
+      .select()
+      .from(trailerProfiles)
+      .where(eq(trailerProfiles.id, plan.trailerProfileId))
+      .limit(1);
+    if (!trailer) return reply.status(404).send({ error: 'Trailer profile not found.' });
+
     const items = await db
       .select()
       .from(ldLoadItems)
       .where(eq(ldLoadItems.loadPlanId, plan.id));
-    return { ...plan, items };
+
+    // Embed the full trailer profile (shaped to the shared TrailerProfile type)
+    // so the frontend viewers/editor/export can read its dimensions directly.
+    const trailerProfile: loadDiagram.TrailerProfile = {
+      id: trailer.id,
+      name: trailer.name,
+      internalLength: trailer.internalLength,
+      internalWidth: trailer.internalWidth,
+      internalHeight: trailer.internalHeight,
+      maxPayloadWeight: trailer.maxPayloadWeight,
+      axleCount: trailer.axleCount,
+      axleWeightLimits: trailer.axleWeightLimits,
+      displayUnitSystem: trailer.displayUnitSystem as UnitSystem,
+      doorConfig: (trailer.doorConfig as unknown as loadDiagram.DoorConfig) ?? {
+        rear: true,
+        sideLeft: false,
+        sideRight: false,
+      },
+      isTemplate: trailer.isTemplate,
+    };
+
+    return { ...plan, trailerProfile, items };
   });
 
   // POST /api/load-diagram/plans  (create + compute)

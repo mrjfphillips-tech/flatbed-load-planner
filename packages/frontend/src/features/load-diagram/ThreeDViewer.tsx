@@ -107,7 +107,7 @@ export function ThreeDViewer() {
   }, [planId]);
 
   const cameraTarget = useMemo<[number, number, number]>(() => {
-    if (!plan) return [0, 0, 0];
+    if (!plan?.trailerProfile) return [0, 0, 0];
     const t = plan.trailerProfile;
     return [(t.internalLength * S) / 2, (t.internalHeight * S) / 2, (t.internalWidth * S) / 2];
   }, [plan]);
@@ -115,7 +115,7 @@ export function ThreeDViewer() {
   if (!planId) return <p className="text-sm text-gray-500">No plan computed yet.</p>;
   if (loading) return <p className="text-sm text-gray-500">Loading 3D view…</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
-  if (!plan) return null;
+  if (!plan || !plan.trailerProfile) return null;
 
   const t = plan.trailerProfile;
   const camDist = (t.internalLength * S) * 1.3;
