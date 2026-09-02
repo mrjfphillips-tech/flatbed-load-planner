@@ -223,7 +223,24 @@ export function parseRow(
     temperatureZone: toStringValue(getCell(row, headers, 'Temperature_Zone')),
     floorOnly: toBool(getCell(row, headers, 'Floor_Only_Flag')),
     topLoadProhibited: false,
+    // Optional operational metadata (drive metadata-dependent rules when present).
+    planLayer: toStringValue(getCell(row, headers, 'Plan_Layer')),
+    loadSide: normalizeLoadSide(toStringValue(getCell(row, headers, 'Load_Side'))),
+    rotatable: headers.has('Rotatable') ? toBool(getCell(row, headers, 'Rotatable')) : undefined,
+    trip: toStringValue(getCell(row, headers, 'Trip')),
   };
+}
+
+/** Normalizes a raw load-side cell to the LoadSide union, or undefined. */
+function normalizeLoadSide(raw: string | undefined): loadDiagram.LoadSide | undefined {
+  if (!raw) return undefined;
+  const s = raw.toLowerCase().replace(/[^a-z]+/g, '');
+  if (s === 'left' || s === 'izquierda') return 'left';
+  if (s === 'right' || s === 'derecha') return 'right';
+  if (s.includes('centre') || s.includes('center') || s.includes('full') || s === 'centro') {
+    return 'centre_full_width';
+  }
+  return undefined;
 }
 
 // ─── Public entry point ──────────────────────────────────────────────────────

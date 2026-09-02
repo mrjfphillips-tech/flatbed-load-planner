@@ -17,7 +17,7 @@
 // trip, unload banding, temperature multi-zone) are added later, each gated on
 // its field being present and failing closed when absent.
 
-import type { PlacedItem, LoadItem, TrailerProfile } from './types';
+import type { PlacedItem, LoadItem, TrailerProfile, LoadSide } from './types';
 import type { RulesConfig, RuleSeverity } from './rules-config';
 import { DEFAULT_RULES_CONFIG, classCanCarry } from './rules-config';
 
@@ -44,7 +44,13 @@ export type RuleCode =
   | 'MAX_STACK_WEIGHT'
   | 'STACK_CLASS_COMPATIBILITY'
   | 'AXLE_AND_COG'
-  | 'COG_HEIGHT';
+  | 'COG_HEIGHT'
+  | 'PLAN_LAYER_ORDER'
+  | 'LIFO_DELIVERY_ORDER'
+  | 'LOAD_SIDE'
+  | 'LONG_ITEM_ORIENTATION'
+  | 'TEMPERATURE_ZONE'
+  | 'TRIP_SEGREGATION';
 
 /** The full plan handed to the rules engine. */
 export interface RulePlan {
@@ -392,6 +398,185 @@ export function ruleAxleAndCog(plan: RulePlan, cfg: RulesConfig): RuleViolation[
   return v;
 }
 
+// ═══ Metadata-dependent rules ════════════════════════════════════════════════
+// Each of these is gated on its field being present. When the data is absent it
+// is silent (the rule simply doesn't apply); when the data is partial it fails
+// closed (reports an error rather than guessing).
+
+// ─── Rule: PLAN_LAYER_ORDER ──────────────────────────────────────────────────
+
+/** Uses the plan's own P0_Lx codes as authoritative order: a supported item's
+ *  layer rank must be >= its supporter's; within a delivery stop, a lower-rank
+ *  layer must not sit above a higher-rank one. Gated on planLayer being set. */
+export function rulePlanLayerOrder(plan: RulePlan, cfg: RulesConfig): RuleViolation[] {
+  const v: RuleViolation[] = [];
+  const gapEps = cfg.tolerances.supportGapEpsilonMm;
+  const rank = (p: PlacedItem): number | undefined =>
+    p.planLayer != null ? cfg.planLayerOrder[p.planLayer] : undefined;
+
+  for (const p of plan.placed) {
+    const supporters = supportersOf(p, plan.placed, gapEps);
+    for (const s of supporters) {
+      const rp = rank(p);
+      const rs = rank(s);
+      // Only evaluate when BOTH have known layer codes (fail-closed on unknowns
+      // that are present but unmapped).
+      if (p.planLayer != null && rp == null) {
+        v.push({ rule: 'PLAN_LAYER_ORDER', severity: 'error', itemIds: [p.id],
+          rationale: `${p.itemId} has an unrecognized plan layer "${p.planLayer}" — it isn't in the plan's layer order.` });
+        continue;
+      }
+      if (rp != null && rs != null && rp < rs) {
+        v.push({ rule: 'PLAN_LAYER_ORDER', severity: 'error', itemIds: [p.id, s.id],
+          rationale: `${p.itemId} (layer ${p.planLayer}) sits on ${s.itemId} (layer ${s.planLayer}) — a lower plan layer must not be stacked above a higher one.` });
+      }
+    }
+  }
+  return v;
+}
+
+// ─── Rule: LIFO_DELIVERY_ORDER ───────────────────────────────────────────────
+
+/** Delivery-stop LIFO. In `side` mode (crane from the kerb): vertical only — a
+ *  unit may only rest on one with the same or a LATER delivery stop. In `rear`
+ *  mode (doors): vertical LIFO plus longitudinal banding — later stops fully
+ *  forward of earlier ones. Gated on deliveryStop being set. */
+export function ruleLifoDeliveryOrder(plan: RulePlan, cfg: RulesConfig): RuleViolation[] {
+  const v: RuleViolation[] = [];
+  const gapEps = cfg.tolerances.supportGapEpsilonMm;
+  const mode = plan.trailer.unloadMode ?? cfg.unloadMode;
+  const withStops = plan.placed.filter((p) => p.deliveryStop != null);
+  if (withStops.length === 0) return v; // rule doesn't apply
+
+  // Vertical LIFO (both modes): a unit may only rest on same/later stop.
+  for (const p of withStops) {
+    const supporters = supportersOf(p, plan.placed, gapEps);
+    for (const s of supporters) {
+      if (s.deliveryStop == null) continue;
+      if (s.deliveryStop < p.deliveryStop!) {
+        v.push({ rule: 'LIFO_DELIVERY_ORDER', severity: 'error', itemIds: [p.id, s.id],
+          rationale: `${p.itemId} (stop ${p.deliveryStop}) is stacked on ${s.itemId} (stop ${s.deliveryStop}) — the earlier stop would be trapped underneath and can't be unloaded first.` });
+      }
+    }
+  }
+
+  // Rear mode: longitudinal banding — later stops fully forward of earlier ones.
+  if (mode === 'rear') {
+    for (const a of withStops) {
+      for (const b of withStops) {
+        if (a.deliveryStop! <= b.deliveryStop!) continue;
+        // a is a LATER stop than b, so a must be fully forward (lower X) of b.
+        const aBox = boxOf(a);
+        const bBox = boxOf(b);
+        if (aBox.x1 > bBox.x0 + cfg.tolerances.positionEpsilonMm) {
+          v.push({ rule: 'LIFO_DELIVERY_ORDER', severity: 'error', itemIds: [a.id, b.id],
+            rationale: `Rear-unload: ${a.itemId} (stop ${a.deliveryStop}) must sit fully ahead of ${b.itemId} (stop ${b.deliveryStop}) so earlier stops come out the doors first.` });
+        }
+      }
+    }
+  }
+  return v;
+}
+
+// ─── Rule: LOAD_SIDE (warning) ───────────────────────────────────────────────
+
+/** The plan's left/right/centre_full_width hint, evaluated on each item's
+ *  weighted group centroid with a tolerance. Warning only. Gated on loadSide. */
+export function ruleLoadSide(plan: RulePlan, cfg: RulesConfig): RuleViolation[] {
+  const v: RuleViolation[] = [];
+  const tol = cfg.loadSide.centreToleranceMm;
+  const centre = plan.trailer.internalWidth / 2;
+
+  // Group by (itemId, loadSide) and check each group's weighted centroid.
+  const groups = new Map<string, { side: LoadSide; items: PlacedItem[] }>();
+  for (const p of plan.placed) {
+    if (p.loadSide == null) continue;
+    const key = `${p.itemId}|${p.loadSide}`;
+    const g = groups.get(key) ?? { side: p.loadSide, items: [] };
+    g.items.push(p);
+    groups.set(key, g);
+  }
+
+  for (const g of groups.values()) {
+    const totalW = g.items.reduce((s, p) => s + p.weight, 0);
+    if (totalW <= 0) continue;
+    let my = 0;
+    for (const p of g.items) {
+      const dy = extents(p).dy;
+      my += (p.placedY + dy / 2) * p.weight;
+    }
+    const cogY = my / totalW;
+    const first = g.items[0];
+    if (g.side === 'left' && cogY > centre + tol) {
+      v.push({ rule: 'LOAD_SIDE', severity: cfg.severity.LOAD_SIDE ?? 'warning', itemIds: g.items.map((p) => p.id),
+        rationale: `${first.itemId} is hinted to load on the left but its weight sits right of centre — review side placement.` });
+    } else if (g.side === 'right' && cogY < centre - tol) {
+      v.push({ rule: 'LOAD_SIDE', severity: cfg.severity.LOAD_SIDE ?? 'warning', itemIds: g.items.map((p) => p.id),
+        rationale: `${first.itemId} is hinted to load on the right but its weight sits left of centre — review side placement.` });
+    } else if (g.side === 'centre_full_width' && Math.abs(cogY - centre) > tol) {
+      v.push({ rule: 'LOAD_SIDE', severity: cfg.severity.LOAD_SIDE ?? 'warning', itemIds: g.items.map((p) => p.id),
+        rationale: `${first.itemId} is hinted centre/full-width but its weight is off-centre — review side placement.` });
+    }
+  }
+  return v;
+}
+
+// ─── Rule: LONG_ITEM_ORIENTATION ─────────────────────────────────────────────
+
+/** Rotation is opt-in per item; an item longer than the deck width can never be
+ *  turned across the deck. Flags a placement that turned a non-rotatable (or
+ *  too-long) item across the deck. */
+export function ruleLongItemOrientation(plan: RulePlan): RuleViolation[] {
+  const v: RuleViolation[] = [];
+  const deckWidth = plan.trailer.internalWidth;
+  for (const p of plan.placed) {
+    // "Turned across the deck" = the item's longest side runs along Y (width).
+    const dims = extents(p);
+    const longestSide = Math.max(p.length, p.width, p.height);
+    const acrossDeck = Math.abs(dims.dy - longestSide) <= 1e-6 && longestSide > Math.min(p.length, p.width, p.height);
+    if (!acrossDeck) continue;
+    if (longestSide > deckWidth + 1e-6) {
+      v.push({ rule: 'LONG_ITEM_ORIENTATION', severity: 'error', itemIds: [p.id],
+        rationale: `${p.itemId} (${Math.round(longestSide)} mm) is turned across the deck but is wider than the ${Math.round(deckWidth)} mm deck — it cannot physically lie that way.` });
+    } else if (p.rotatable !== true) {
+      v.push({ rule: 'LONG_ITEM_ORIENTATION', severity: 'error', itemIds: [p.id],
+        rationale: `${p.itemId} was turned across the deck, but it isn't marked rotatable — long steel is loaded lengthwise unless explicitly allowed.` });
+    }
+  }
+  return v;
+}
+
+// ─── Rule: TEMPERATURE_ZONE ──────────────────────────────────────────────────
+
+/** One temperature zone per load unless the vehicle is multi-temp. Gated on any
+ *  item declaring a temperatureZone. */
+export function ruleTemperatureZone(plan: RulePlan): RuleViolation[] {
+  const v: RuleViolation[] = [];
+  const zoned = plan.placed.filter((p) => p.temperatureZone != null);
+  if (zoned.length === 0) return v;
+  const zones = new Set(zoned.map((p) => p.temperatureZone!));
+  if (zones.size > 1 && plan.trailer.multiTemp !== true) {
+    v.push({ rule: 'TEMPERATURE_ZONE', severity: 'error', itemIds: zoned.map((p) => p.id),
+      rationale: `Load mixes temperature zones (${[...zones].join(', ')}) on a single-temperature vehicle — split the load or use a multi-temp vehicle.` });
+  }
+  return v;
+}
+
+// ─── Rule: TRIP_SEGREGATION ──────────────────────────────────────────────────
+
+/** One trip per load — a second lap is a separate load. Gated on trip being set. */
+export function ruleTripSegregation(plan: RulePlan): RuleViolation[] {
+  const v: RuleViolation[] = [];
+  const withTrip = plan.placed.filter((p) => p.trip != null);
+  if (withTrip.length === 0) return v;
+  const trips = new Set(withTrip.map((p) => p.trip!));
+  if (trips.size > 1) {
+    v.push({ rule: 'TRIP_SEGREGATION', severity: 'error', itemIds: withTrip.map((p) => p.id),
+      rationale: `Load mixes ${trips.size} trips (${[...trips].join(', ')}) — each trip is a separate load and must be planned on its own.` });
+  }
+  return v;
+}
+
 // ─── Orchestration ───────────────────────────────────────────────────────────
 
 /** The full set of no-new-data rules, in evaluation order. */
@@ -405,6 +590,12 @@ const RULES: Array<(plan: RulePlan, cfg: RulesConfig) => RuleViolation[]> = [
   ruleMaxStackWeight,
   ruleStackClassCompatibility,
   ruleAxleAndCog,
+  rulePlanLayerOrder,
+  ruleLifoDeliveryOrder,
+  ruleLoadSide,
+  (plan) => ruleLongItemOrientation(plan),
+  (plan) => ruleTemperatureZone(plan),
+  (plan) => ruleTripSegregation(plan),
 ];
 
 /** Runs every rule and partitions results into errors and warnings. */

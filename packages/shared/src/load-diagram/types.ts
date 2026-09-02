@@ -55,6 +55,11 @@ export interface TrailerProfile {
   displayUnitSystem: UnitSystem;
   /** Vehicle type driving packing rules (defaults to flatbed for open decks). */
   trailerType: TrailerType;
+  /** How the vehicle is unloaded (side crane vs. rear doors). Optional; the
+   *  LIFO rule uses it when present and defaults to the config unloadMode. */
+  unloadMode?: 'side' | 'rear';
+  /** Whether the vehicle supports multiple temperature compartments. */
+  multiTemp?: boolean;
   doorConfig: DoorConfig;
   isTemplate: boolean;
 }
@@ -83,7 +88,20 @@ export interface LoadItem {
   temperatureZone?: string;
   floorOnly: boolean;
   topLoadProhibited: boolean;
+  // ── Optional operational metadata (drive metadata-dependent rules; each rule
+  //    is gated on its field being present and fails closed on partial data) ──
+  /** OptiFlow plan layer code, e.g. "P0_L3" — authoritative stacking order. */
+  planLayer?: string;
+  /** Side hint for lateral placement. */
+  loadSide?: LoadSide;
+  /** Whether the item may be rotated 90° in plan (opt-in; default false). */
+  rotatable?: boolean;
+  /** Trip identifier — one trip per load (a second lap is a separate load). */
+  trip?: string;
 }
+
+/** Lateral placement hint for the LOAD_SIDE rule. */
+export type LoadSide = 'left' | 'right' | 'centre_full_width';
 
 /** The six axis-aligned orientations an item may be rotated into. */
 export type ItemOrientation = 'LWH' | 'WLH' | 'LHW' | 'WHL' | 'HLW' | 'HWL';

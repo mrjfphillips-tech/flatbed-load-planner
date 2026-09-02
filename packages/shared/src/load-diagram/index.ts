@@ -9,6 +9,7 @@ export type {
   DoorConfig,
   TrailerProfile,
   LoadItem,
+  LoadSide,
   ItemOrientation,
   PlacedItem,
   LoadPlanStatus,
@@ -58,6 +59,12 @@ export {
   ruleMaxStackWeight,
   ruleStackClassCompatibility,
   ruleAxleAndCog,
+  rulePlanLayerOrder,
+  ruleLifoDeliveryOrder,
+  ruleLoadSide,
+  ruleLongItemOrientation,
+  ruleTemperatureZone,
+  ruleTripSegregation,
 } from './rules';
 export type { RuleViolation, RuleCode, RulePlan, ValidationResult } from './rules';
 

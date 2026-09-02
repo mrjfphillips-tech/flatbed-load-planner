@@ -43,6 +43,10 @@ export function templateColumns(unitSystem: UnitSystem): string[] {
     'Temperature_Zone',
     'Floor_Only_Flag',
     'Vehicle_ID',
+    'Plan_Layer',
+    'Load_Side',
+    'Rotatable',
+    'Trip',
   ];
 }
 
@@ -70,6 +74,10 @@ function instructionRows(unitSystem: UnitSystem): ColumnDoc[] {
     { column: 'Temperature_Zone', meaning: 'Optional temperature zone label.', example: 'ambient' },
     { column: 'Floor_Only_Flag', meaning: 'TRUE/yes/x if the item must sit on the floor.', example: 'no' },
     { column: 'Vehicle_ID', meaning: 'Optional. If set to a fleet vehicle ID, that vehicle is auto-assigned on upload.', example: 'TRK-1' },
+    { column: 'Plan_Layer', meaning: 'Optional OptiFlow plan layer code (authoritative stacking order).', example: 'P0_L3' },
+    { column: 'Load_Side', meaning: 'Optional side hint: left, right, or centre_full_width.', example: 'centre_full_width' },
+    { column: 'Rotatable', meaning: 'Optional. TRUE if the item may be rotated 90° in plan (default no).', example: 'no' },
+    { column: 'Trip', meaning: 'Optional trip identifier. One trip per load.', example: '2' },
   ];
 }
 
