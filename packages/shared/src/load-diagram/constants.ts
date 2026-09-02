@@ -66,6 +66,58 @@ export const EXCEL_DIMENSION_COLUMN_MAP: Record<
   },
 };
 
+// ─── Fleet Vehicle Excel Columns ─────────────────────────────────────────────
+
+/** Fleet columns that are independent of the unit system. */
+export const FLEET_UNIT_INDEPENDENT_COLUMNS = [
+  'Vehicle_ID',
+  'Vehicle_Name',
+  'Vehicle_Account',
+  'License_Plate',
+  'Cost_Per_Stop',
+  'Fixed_Cost',
+  'Cost_Per_Hour',
+  'Cost_Per_Km',
+] as const;
+
+/** Fleet metric dimension/weight columns. */
+export const FLEET_METRIC_COLUMNS = [
+  'Max_Weight_kg',
+  'Platform_Length_mm',
+  'Platform_Width_mm',
+  'Platform_Height_mm',
+] as const;
+
+/** Fleet imperial dimension/weight columns. */
+export const FLEET_IMPERIAL_COLUMNS = [
+  'Max_Weight_lb',
+  'Platform_Length_in',
+  'Platform_Width_in',
+  'Platform_Height_in',
+] as const;
+
+/**
+ * Maps a logical fleet field to its Excel column name in each unit system.
+ * Used by the fleet parser and template generator.
+ */
+export const FLEET_DIMENSION_COLUMN_MAP: Record<
+  UnitSystem,
+  { maxWeight: string; platformLength: string; platformWidth: string; platformHeight: string }
+> = {
+  metric: {
+    maxWeight: 'Max_Weight_kg',
+    platformLength: 'Platform_Length_mm',
+    platformWidth: 'Platform_Width_mm',
+    platformHeight: 'Platform_Height_mm',
+  },
+  imperial: {
+    maxWeight: 'Max_Weight_lb',
+    platformLength: 'Platform_Length_in',
+    platformWidth: 'Platform_Width_in',
+    platformHeight: 'Platform_Height_in',
+  },
+};
+
 // ─── Default Stackability Classes ────────────────────────────────────────────
 
 /** Default stackability class identifiers. */

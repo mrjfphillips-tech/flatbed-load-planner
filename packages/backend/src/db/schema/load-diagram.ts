@@ -62,11 +62,14 @@ export const ldLoadPlans = pgTable(
   'ld_load_plans',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    trailerProfileId: uuid('trailer_profile_id')
-      .notNull()
-      .references(() => trailerProfiles.id),
+    // Nullable: a plan is tied to EITHER a trailer profile or a fleet vehicle.
+    trailerProfileId: uuid('trailer_profile_id').references(() => trailerProfiles.id),
     name: varchar('name', { length: 255 }).notNull(),
     status: ldPlanStatusEnum('status').notNull().default('draft'),
+    // Optional assignment of this plan to a specific fleet vehicle. Kept as a
+    // plain uuid column (no cross-file FK reference) to avoid a schema import
+    // cycle; referential integrity is enforced by the migration.
+    fleetVehicleId: uuid('fleet_vehicle_id'),
     sourceUnitSystem: unitSystemEnum('source_unit_system').notNull().default('metric'),
     displayUnitSystem: unitSystemEnum('display_unit_system').notNull().default('metric'),
     totalWeight: real('total_weight_kg'),

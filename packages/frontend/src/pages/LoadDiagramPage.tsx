@@ -12,9 +12,11 @@ import { UploadWizard } from '../features/load-diagram/UploadWizard';
 import { DiagramViewer } from '../features/load-diagram/DiagramViewer';
 import { PlanEditor } from '../features/load-diagram/PlanEditor';
 import { ExportPanel } from '../features/load-diagram/ExportPanel';
+import { FleetManager } from '../features/load-diagram/FleetManager';
 import { useState } from 'react';
 
 const STEPS: { id: LoadDiagramStep; label: string }[] = [
+  { id: 4, label: 'Fleet' },
   { id: 1, label: 'Upload' },
   { id: 2, label: 'Diagram' },
   { id: 3, label: 'Export' },
@@ -29,8 +31,10 @@ export function LoadDiagramPage() {
     setDisplayUnitSystem,
   } = useLoadDiagramStore();
 
+  const selectFleetVehicle = useLoadDiagramStore((s) => s.selectFleetVehicle);
+
   function canGoTo(step: LoadDiagramStep): boolean {
-    if (step === 1) return true;
+    if (step === 1 || step === 4) return true;
     // Steps 2 and 3 require a computed plan.
     return planId !== null;
   }
@@ -74,6 +78,14 @@ export function LoadDiagramPage() {
         </nav>
 
         <div className="rounded-lg bg-white p-6 shadow-sm">
+          {currentStep === 4 && (
+            <FleetManager
+              onSelectVehicle={(vehicle, fleetName) => {
+                selectFleetVehicle(vehicle.id, `${vehicle.vehicleName} — ${fleetName}`);
+                setCurrentStep(1);
+              }}
+            />
+          )}
           {currentStep === 1 && (
             <UploadWizard onGenerated={() => setCurrentStep(2)} />
           )}

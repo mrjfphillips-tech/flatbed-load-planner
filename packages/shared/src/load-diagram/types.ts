@@ -145,6 +145,64 @@ export interface ExcelParseResult {
   };
 }
 
+// ─── Fleet & Vehicles ────────────────────────────────────────────────────────
+
+/**
+ * A single fleet vehicle. Dimensions/weights are stored in canonical mm/kg;
+ * cost fields are plain numbers (currency-agnostic) and all optional. Vehicles
+ * can be created by Excel upload or built manually with the same fields.
+ */
+export interface FleetVehicle {
+  id: string;
+  /** Business identifier from the source data (e.g. unit number). */
+  vehicleId: string;
+  vehicleName: string;
+  /** Optional owning account / customer reference. */
+  vehicleAccount?: string;
+  licensePlate?: string;
+  /** Maximum payload weight in canonical kg. */
+  maxWeight: number;
+  /** Platform (deck) length in canonical mm. */
+  platformLength: number;
+  /** Platform (deck) width in canonical mm. */
+  platformWidth: number;
+  /**
+   * Optional platform / load height limit in canonical mm. When absent the
+   * vehicle is treated as an open flatbed with a large default height bound.
+   */
+  platformHeight?: number;
+  // ── Optional cost attributes (currency-agnostic) ──
+  costPerStop?: number;
+  fixedCost?: number;
+  costPerHour?: number;
+  costPerKm?: number;
+}
+
+/** A named collection of fleet vehicles (e.g. "Customer Fleet"). */
+export interface Fleet {
+  id: string;
+  name: string;
+  /** Preferred display units for this fleet. */
+  displayUnitSystem: UnitSystem;
+  vehicles: FleetVehicle[];
+}
+
+/** The result of parsing a fleet vehicle Excel file. */
+export interface FleetVehicleParseResult {
+  vehicles: FleetVehicle[];
+  /** Unit system detected from the uploaded file. */
+  detectedUnitSystem: UnitSystem;
+  errors: ValidationError[];
+  summary: {
+    totalVehicles: number;
+    /** Sum of vehicle max weights, in canonical kg. */
+    totalMaxWeight: number;
+  };
+}
+
+/** Default platform height (mm) used for open flatbeds when none is provided. */
+export const DEFAULT_OPEN_PLATFORM_HEIGHT_MM = 4000;
+
 // ─── Constraint Validation ───────────────────────────────────────────────────
 
 /** The kind of constraint that was violated. */

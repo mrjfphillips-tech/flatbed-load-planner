@@ -16,6 +16,7 @@ import {
   templateUrl,
   listTrailers,
   createPlan,
+  createPlanForVehicle,
 } from './api';
 
 const { formatLength, formatWeight } = loadDiagram;
@@ -33,12 +34,15 @@ export function UploadWizard({ onGenerated }: UploadWizardProps) {
     displayUnitSystem,
     trailerProfiles,
     selectedTrailerId,
+    selectedFleetVehicleId,
+    selectedFleetVehicleLabel,
     isUploading,
     isGenerating,
     error,
     setUploadResult,
     setTrailerProfiles,
     selectTrailer,
+    selectFleetVehicle,
     setPlanResult,
     setIsUploading,
     setIsGenerating,
@@ -86,17 +90,27 @@ export function UploadWizard({ onGenerated }: UploadWizardProps) {
   }
 
   async function handleGenerate() {
-    if (!selectedTrailerId || items.length === 0) return;
+    if (items.length === 0) return;
+    // A plan is generated against EITHER a fleet vehicle or a trailer profile.
+    if (!selectedFleetVehicleId && !selectedTrailerId) return;
     setError(null);
     setIsGenerating(true);
+    const name = fileName ? `Plan — ${fileName}` : 'Load Plan';
     try {
-      const result = await createPlan({
-        name: fileName ? `Plan — ${fileName}` : 'Load Plan',
-        trailerProfileId: selectedTrailerId,
-        items,
-        sourceUnitSystem,
-        displayUnitSystem,
-      });
+      const result = selectedFleetVehicleId
+        ? await createPlanForVehicle(selectedFleetVehicleId, {
+            name,
+            items,
+            sourceUnitSystem,
+            displayUnitSystem,
+          })
+        : await createPlan({
+            name,
+            trailerProfileId: selectedTrailerId!,
+            items,
+            sourceUnitSystem,
+            displayUnitSystem,
+          });
       setPlanResult(result);
       onGenerated?.(result.planId);
     } catch (e) {
@@ -107,7 +121,11 @@ export function UploadWizard({ onGenerated }: UploadWizardProps) {
   }
 
   const hasErrors = validationErrors.length > 0;
-  const canGenerate = items.length > 0 && !hasErrors && !!selectedTrailerId && !isGenerating;
+  const canGenerate =
+    items.length > 0 &&
+    !hasErrors &&
+    (!!selectedTrailerId || !!selectedFleetVehicleId) &&
+    !isGenerating;
 
   return (
     <div className="space-y-6">
@@ -203,8 +221,27 @@ export function UploadWizard({ onGenerated }: UploadWizardProps) {
         </div>
       )}
 
-      {/* Trailer selection */}
-      {items.length > 0 && !hasErrors && (
+      {/* Fleet vehicle selection (set from the Fleet tab) */}
+      {items.length > 0 && !hasErrors && selectedFleetVehicleId && (
+        <div className="rounded-md border border-blue-300 bg-blue-50 p-3 text-sm text-blue-800">
+          <div className="flex items-center justify-between">
+            <span>
+              Planning against fleet vehicle:{' '}
+              <span className="font-medium">{selectedFleetVehicleLabel}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => selectFleetVehicle(null, null)}
+              className="text-blue-700 hover:underline"
+            >
+              Use a trailer profile instead
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Trailer selection (when no fleet vehicle is chosen) */}
+      {items.length > 0 && !hasErrors && !selectedFleetVehicleId && (
         <div>
           <label className="block text-sm font-medium text-gray-700">Trailer profile</label>
           <select

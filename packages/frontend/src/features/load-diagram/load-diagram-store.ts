@@ -17,7 +17,7 @@ type ValidationError = loadDiagram.ValidationError;
 type TrailerProfile = loadDiagram.TrailerProfile;
 type PlacedItem = loadDiagram.PlacedItem;
 
-export type LoadDiagramStep = 1 | 2 | 3;
+export type LoadDiagramStep = 1 | 2 | 3 | 4;
 
 export interface LoadDiagramState {
   // Wizard navigation
@@ -37,6 +37,10 @@ export interface LoadDiagramState {
   trailerProfiles: TrailerProfile[];
   selectedTrailerId: string | null;
 
+  // Fleet vehicle selection (alternative to a trailer profile)
+  selectedFleetVehicleId: string | null;
+  selectedFleetVehicleLabel: string | null;
+
   // Plan
   planId: string | null;
   planResult: CreatePlanResult | null;
@@ -54,6 +58,7 @@ export interface LoadDiagramState {
   setUploadResult: (result: loadDiagram.ExcelParseResult) => void;
   setTrailerProfiles: (profiles: TrailerProfile[]) => void;
   selectTrailer: (id: string) => void;
+  selectFleetVehicle: (id: string | null, label: string | null) => void;
   setPlanResult: (result: CreatePlanResult) => void;
   setPlacedItems: (items: PlacedItem[]) => void;
   setIsUploading: (v: boolean) => void;
@@ -71,6 +76,8 @@ const initialState = {
   uploadSummary: null,
   trailerProfiles: [] as TrailerProfile[],
   selectedTrailerId: null,
+  selectedFleetVehicleId: null,
+  selectedFleetVehicleLabel: null,
   planId: null,
   planResult: null,
   placedItems: [] as PlacedItem[],
@@ -102,6 +109,9 @@ export const useLoadDiagramStore = create<LoadDiagramState>()((set) => ({
   setTrailerProfiles: (profiles) => set({ trailerProfiles: profiles }),
 
   selectTrailer: (id) => set({ selectedTrailerId: id }),
+
+  selectFleetVehicle: (id, label) =>
+    set({ selectedFleetVehicleId: id, selectedFleetVehicleLabel: label }),
 
   setPlanResult: (result) =>
     set({

@@ -18,7 +18,11 @@ export type {
   ConstraintViolationType,
   ConstraintViolation,
   DiagramExportOptions,
+  FleetVehicle,
+  Fleet,
+  FleetVehicleParseResult,
 } from './types';
+export { DEFAULT_OPEN_PLATFORM_HEIGHT_MM } from './types';
 
 // ─── Unit Conversion & Formatting ────────────────────────────────────────────
 export {
@@ -42,6 +46,10 @@ export {
   EXCEL_DIMENSION_COLUMN_MAP,
   DEFAULT_STACKABILITY_CLASSES,
   TRAILER_TEMPLATES,
+  FLEET_UNIT_INDEPENDENT_COLUMNS,
+  FLEET_METRIC_COLUMNS,
+  FLEET_IMPERIAL_COLUMNS,
+  FLEET_DIMENSION_COLUMN_MAP,
 } from './constants';
 export type { StackabilityClass } from './constants';
 

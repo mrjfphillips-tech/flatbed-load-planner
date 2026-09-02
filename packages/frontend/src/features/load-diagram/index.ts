@@ -7,4 +7,5 @@ export { DiagramViewer } from './DiagramViewer';
 export { ThreeDViewer } from './ThreeDViewer';
 export { PlanEditor } from './PlanEditor';
 export { ExportPanel } from './ExportPanel';
+export { FleetManager } from './FleetManager';
 export * as loadDiagramApi from './api';

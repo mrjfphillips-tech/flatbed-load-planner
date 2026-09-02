@@ -11,3 +11,6 @@ export * from './flatbed-rules';
 
 // ─── Load Diagram Generator Schema ──────────────────────────────────────────────
 export * from './load-diagram';
+
+// ─── Customer Fleet Schema ────────────────────────────────────────────────────
+export * from './fleet';

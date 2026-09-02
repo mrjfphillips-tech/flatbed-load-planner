@@ -20,11 +20,17 @@ import {
   ldLoadItems,
   ldPlanHistory,
 } from '../db/schema/load-diagram.js';
+import { fleets, fleetVehicles } from '../db/schema/fleet.js';
 import { parseExcelFile } from '../load-diagram/services/excelParser.js';
 import {
   generateTemplate,
   templateFilename,
 } from '../load-diagram/services/excelTemplate.js';
+import { parseFleetVehicleFile } from '../load-diagram/services/fleetVehicleParser.js';
+import {
+  generateFleetTemplate,
+  fleetTemplateFilename,
+} from '../load-diagram/services/fleetTemplate.js';
 import { generatePDF } from '../load-diagram/services/diagramGenerator.js';
 import { loadDiagram } from '@ptv-discovery-coach/shared';
 
@@ -172,37 +178,18 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
       .limit(1);
     if (!plan) return reply.status(404).send({ error: 'Load plan not found.' });
 
-    const [trailer] = await db
-      .select()
-      .from(trailerProfiles)
-      .where(eq(trailerProfiles.id, plan.trailerProfileId))
-      .limit(1);
-    if (!trailer) return reply.status(404).send({ error: 'Trailer profile not found.' });
+    // Embed the effective trailer profile (from a trailer profile OR a fleet
+    // vehicle's platform) so the frontend viewers/editor/export can read its
+    // dimensions directly.
+    const trailerProfile = await resolvePlanTrailer(plan);
+    if (!trailerProfile) {
+      return reply.status(404).send({ error: 'Trailer profile or fleet vehicle not found.' });
+    }
 
     const items = await db
       .select()
       .from(ldLoadItems)
       .where(eq(ldLoadItems.loadPlanId, plan.id));
-
-    // Embed the full trailer profile (shaped to the shared TrailerProfile type)
-    // so the frontend viewers/editor/export can read its dimensions directly.
-    const trailerProfile: loadDiagram.TrailerProfile = {
-      id: trailer.id,
-      name: trailer.name,
-      internalLength: trailer.internalLength,
-      internalWidth: trailer.internalWidth,
-      internalHeight: trailer.internalHeight,
-      maxPayloadWeight: trailer.maxPayloadWeight,
-      axleCount: trailer.axleCount,
-      axleWeightLimits: trailer.axleWeightLimits,
-      displayUnitSystem: trailer.displayUnitSystem as UnitSystem,
-      doorConfig: (trailer.doorConfig as unknown as loadDiagram.DoorConfig) ?? {
-        rear: true,
-        sideLeft: false,
-        sideRight: false,
-      },
-      isTemplate: trailer.isTemplate,
-    };
 
     return { ...plan, trailerProfile, items };
   });
@@ -234,12 +221,15 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
 
     const result = await computeAndPersistPlan(
       b.name,
-      trailer,
+      trailerRowToProfile(trailer),
       b.items,
       isUnitSystem(b.sourceUnitSystem) ? b.sourceUnitSystem : 'metric',
       isUnitSystem(b.displayUnitSystem)
         ? b.displayUnitSystem
         : (trailer.displayUnitSystem as UnitSystem),
+      undefined,
+      undefined,
+      trailer.id,
     );
     return reply.status(201).send(result);
   });
@@ -253,12 +243,27 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
       .limit(1);
     if (!plan) return reply.status(404).send({ error: 'Load plan not found.' });
 
-    const [trailer] = await db
-      .select()
-      .from(trailerProfiles)
-      .where(eq(trailerProfiles.id, plan.trailerProfileId))
-      .limit(1);
-    if (!trailer) return reply.status(404).send({ error: 'Trailer profile not found.' });
+    // Resolve the "trailer" from whichever the plan is tied to: a trailer
+    // profile or a fleet vehicle's platform.
+    let profile: loadDiagram.TrailerProfile | null = null;
+    if (plan.trailerProfileId) {
+      const [trailer] = await db
+        .select()
+        .from(trailerProfiles)
+        .where(eq(trailerProfiles.id, plan.trailerProfileId))
+        .limit(1);
+      if (trailer) profile = trailerRowToProfile(trailer);
+    } else if (plan.fleetVehicleId) {
+      const [vehicle] = await db
+        .select()
+        .from(fleetVehicles)
+        .where(eq(fleetVehicles.id, plan.fleetVehicleId))
+        .limit(1);
+      if (vehicle) profile = trailerFromVehicle(vehicle);
+    }
+    if (!profile) {
+      return reply.status(404).send({ error: 'Trailer profile or fleet vehicle not found.' });
+    }
 
     const items = await db
       .select()
@@ -286,7 +291,7 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
     await db.delete(ldLoadItems).where(eq(ldLoadItems.loadPlanId, plan.id));
     const result = await computeAndPersistPlan(
       plan.name,
-      trailer,
+      profile,
       loadItems,
       plan.sourceUnitSystem as UnitSystem,
       plan.displayUnitSystem as UnitSystem,
@@ -320,12 +325,10 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
       .limit(1);
     if (!plan) return reply.status(404).send({ error: 'Load plan not found.' });
 
-    const [trailer] = await db
-      .select()
-      .from(trailerProfiles)
-      .where(eq(trailerProfiles.id, plan.trailerProfileId))
-      .limit(1);
-    if (!trailer) return reply.status(404).send({ error: 'Trailer profile not found.' });
+    const profile = await resolvePlanTrailer(plan);
+    if (!profile) {
+      return reply.status(404).send({ error: 'Trailer profile or fleet vehicle not found.' });
+    }
 
     const itemRows = await db
       .select()
@@ -337,7 +340,7 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
       ? opts.unitSystem
       : (plan.displayUnitSystem as UnitSystem);
 
-    const loadPlan = toLoadPlan(plan, trailer, itemRows, displayUnit);
+    const loadPlan = toLoadPlan(plan, profile, itemRows, displayUnit);
     const pdf = await generatePDF(loadPlan, {
       format: 'pdf',
       paperSize: opts.paperSize === 'A3' ? 'A3' : 'A4',
@@ -355,6 +358,217 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
       )
       .send(pdf);
   });
+
+  // ─── Customer Fleet ─────────────────────────────────────────────────────────
+
+  // GET /api/load-diagram/fleet-templates?unit=metric|imperial
+  app.get<{ Querystring: { unit?: string } }>('/fleet-templates', async (request, reply) => {
+    const unit: UnitSystem = isUnitSystem(request.query.unit) ? request.query.unit : 'metric';
+    const buffer = await generateFleetTemplate(unit);
+    return reply
+      .header(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      )
+      .header('Content-Disposition', `attachment; filename="${fleetTemplateFilename(unit)}"`)
+      .send(buffer);
+  });
+
+  // GET /api/load-diagram/fleets  (fleets with vehicle counts)
+  app.get('/fleets', async () => {
+    const rows = await db.select().from(fleets);
+    const withCounts = await Promise.all(
+      rows.map(async (f) => {
+        const vs = await db.select().from(fleetVehicles).where(eq(fleetVehicles.fleetId, f.id));
+        return { ...f, vehicleCount: vs.length };
+      }),
+    );
+    return withCounts;
+  });
+
+  // GET /api/load-diagram/fleets/:id  (fleet + vehicles)
+  app.get<{ Params: { id: string } }>('/fleets/:id', async (request, reply) => {
+    const [fleet] = await db
+      .select()
+      .from(fleets)
+      .where(eq(fleets.id, request.params.id))
+      .limit(1);
+    if (!fleet) return reply.status(404).send({ error: 'Fleet not found.' });
+    const vehicles = await db
+      .select()
+      .from(fleetVehicles)
+      .where(eq(fleetVehicles.fleetId, fleet.id));
+    return { ...fleet, vehicles };
+  });
+
+  // POST /api/load-diagram/fleets  (create a named, empty fleet)
+  app.post<{ Body: { name?: string; displayUnitSystem?: string } }>(
+    '/fleets',
+    async (request, reply) => {
+      const b = request.body ?? {};
+      if (!b.name || !b.name.trim()) {
+        return reply.status(400).send({ error: 'Fleet name is required.' });
+      }
+      const [row] = await db
+        .insert(fleets)
+        .values({
+          name: b.name.trim(),
+          displayUnitSystem: isUnitSystem(b.displayUnitSystem) ? b.displayUnitSystem : 'metric',
+        })
+        .returning();
+      return reply.status(201).send({ ...row, vehicles: [] });
+    },
+  );
+
+  // POST /api/load-diagram/fleets/upload  { name, fileBase64 }
+  // Parses an Excel file of vehicles and creates a named fleet from it.
+  app.post<{ Body: { name?: string; fileBase64?: string } }>(
+    '/fleets/upload',
+    async (request, reply) => {
+      const b = request.body ?? {};
+      if (!b.name || !b.name.trim()) {
+        return reply.status(400).send({ error: 'Fleet name is required.' });
+      }
+      if (!b.fileBase64) {
+        return reply.status(400).send({ error: 'fileBase64 (base64-encoded .xlsx) is required.' });
+      }
+
+      const buffer = Buffer.from(b.fileBase64, 'base64');
+      const parsed = await parseFleetVehicleFile(buffer);
+      if (parsed.errors.length > 0 || parsed.vehicles.length === 0) {
+        return reply.status(400).send(parsed);
+      }
+
+      const [fleet] = await db
+        .insert(fleets)
+        .values({ name: b.name.trim(), displayUnitSystem: parsed.detectedUnitSystem })
+        .returning();
+
+      await db.insert(fleetVehicles).values(
+        parsed.vehicles.map((v) => ({
+          fleetId: fleet.id,
+          vehicleId: v.vehicleId,
+          vehicleName: v.vehicleName,
+          vehicleAccount: v.vehicleAccount ?? null,
+          licensePlate: v.licensePlate ?? null,
+          maxWeight: v.maxWeight,
+          platformLength: v.platformLength,
+          platformWidth: v.platformWidth,
+          platformHeight: v.platformHeight ?? null,
+          costPerStop: v.costPerStop ?? null,
+          fixedCost: v.fixedCost ?? null,
+          costPerHour: v.costPerHour ?? null,
+          costPerKm: v.costPerKm ?? null,
+        })),
+      );
+
+      const vehicles = await db
+        .select()
+        .from(fleetVehicles)
+        .where(eq(fleetVehicles.fleetId, fleet.id));
+      return reply.status(201).send({ ...fleet, vehicles, detectedUnitSystem: parsed.detectedUnitSystem });
+    },
+  );
+
+  // POST /api/load-diagram/fleets/:id/vehicles  (manually add one vehicle)
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>(
+    '/fleets/:id/vehicles',
+    async (request, reply) => {
+      const [fleet] = await db
+        .select()
+        .from(fleets)
+        .where(eq(fleets.id, request.params.id))
+        .limit(1);
+      if (!fleet) return reply.status(404).send({ error: 'Fleet not found.' });
+
+      const err = validateVehicleBody(request.body ?? {});
+      if (err) return reply.status(400).send({ error: err });
+
+      const [row] = await db
+        .insert(fleetVehicles)
+        .values(vehicleValuesFromBody(fleet.id, request.body ?? {}))
+        .returning();
+      return reply.status(201).send(row);
+    },
+  );
+
+  // PUT /api/load-diagram/fleet-vehicles/:id  (edit a vehicle)
+  app.put<{ Params: { id: string }; Body: Record<string, unknown> }>(
+    '/fleet-vehicles/:id',
+    async (request, reply) => {
+      const b = request.body ?? {};
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      const strFields = ['vehicleId', 'vehicleName', 'vehicleAccount', 'licensePlate'];
+      for (const f of strFields) if (b[f] != null) updates[f] = String(b[f]);
+      const numFields = [
+        'maxWeight',
+        'platformLength',
+        'platformWidth',
+        'platformHeight',
+        'costPerStop',
+        'fixedCost',
+        'costPerHour',
+        'costPerKm',
+      ];
+      for (const f of numFields) if (b[f] != null) updates[f] = Number(b[f]);
+
+      const [row] = await db
+        .update(fleetVehicles)
+        .set(updates)
+        .where(eq(fleetVehicles.id, request.params.id))
+        .returning();
+      if (!row) return reply.status(404).send({ error: 'Fleet vehicle not found.' });
+      return row;
+    },
+  );
+
+  // DELETE /api/load-diagram/fleet-vehicles/:id
+  app.delete<{ Params: { id: string } }>('/fleet-vehicles/:id', async (request, reply) => {
+    const [row] = await db
+      .delete(fleetVehicles)
+      .where(eq(fleetVehicles.id, request.params.id))
+      .returning();
+    if (!row) return reply.status(404).send({ error: 'Fleet vehicle not found.' });
+    return { deleted: true, id: row.id };
+  });
+
+  // POST /api/load-diagram/fleet-vehicles/:id/plan  { name, items[], sourceUnitSystem?, displayUnitSystem? }
+  // Creates and computes a load plan using a fleet vehicle's platform as the
+  // trailer footprint. The plan records the assigned fleetVehicleId.
+  app.post<{
+    Params: { id: string };
+    Body: {
+      name?: string;
+      items?: loadDiagram.LoadItem[];
+      sourceUnitSystem?: string;
+      displayUnitSystem?: string;
+    };
+  }>('/fleet-vehicles/:id/plan', async (request, reply) => {
+    const b = request.body ?? {};
+    if (!b.name) return reply.status(400).send({ error: 'name is required.' });
+    if (!Array.isArray(b.items) || b.items.length === 0) {
+      return reply.status(400).send({ error: 'items must be a non-empty array.' });
+    }
+
+    const [vehicle] = await db
+      .select()
+      .from(fleetVehicles)
+      .where(eq(fleetVehicles.id, request.params.id))
+      .limit(1);
+    if (!vehicle) return reply.status(404).send({ error: 'Fleet vehicle not found.' });
+
+    const trailer = trailerFromVehicle(vehicle);
+    const result = await computeAndPersistPlan(
+      b.name,
+      trailer,
+      b.items,
+      isUnitSystem(b.sourceUnitSystem) ? b.sourceUnitSystem : 'metric',
+      isUnitSystem(b.displayUnitSystem) ? b.displayUnitSystem : 'metric',
+      undefined,
+      vehicle.id,
+    );
+    return reply.status(201).send({ ...result, fleetVehicleId: vehicle.id });
+  });
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -367,11 +581,13 @@ type TrailerRow = typeof trailerProfiles.$inferSelect;
  */
 async function computeAndPersistPlan(
   name: string,
-  trailer: TrailerRow,
+  trailerProfile: loadDiagram.TrailerProfile,
   items: loadDiagram.LoadItem[],
   sourceUnitSystem: UnitSystem,
   displayUnitSystem: UnitSystem,
   existingPlanId?: string,
+  fleetVehicleId?: string,
+  trailerProfileId?: string,
 ) {
   // Expand quantities into individual physical units for packing.
   const expanded: loadDiagram.LoadItem[] = [];
@@ -381,24 +597,6 @@ async function computeAndPersistPlan(
       expanded.push({ ...it, quantity: 1, id: qty > 1 ? `${it.id}-u${i + 1}` : it.id });
     }
   }
-
-  const trailerProfile: loadDiagram.TrailerProfile = {
-    id: trailer.id,
-    name: trailer.name,
-    internalLength: trailer.internalLength,
-    internalWidth: trailer.internalWidth,
-    internalHeight: trailer.internalHeight,
-    maxPayloadWeight: trailer.maxPayloadWeight,
-    axleCount: trailer.axleCount,
-    axleWeightLimits: trailer.axleWeightLimits,
-    displayUnitSystem: trailer.displayUnitSystem as UnitSystem,
-    doorConfig: (trailer.doorConfig as unknown as loadDiagram.DoorConfig) ?? {
-      rear: true,
-      sideLeft: false,
-      sideRight: false,
-    },
-    isTemplate: trailer.isTemplate,
-  };
 
   const packing = loadDiagram.computeLoadPlan(expanded, trailerProfile);
 
@@ -423,7 +621,8 @@ async function computeAndPersistPlan(
     const [row] = await db
       .insert(ldLoadPlans)
       .values({
-        trailerProfileId: trailer.id,
+        trailerProfileId: trailerProfileId ?? null,
+        fleetVehicleId: fleetVehicleId ?? null,
         name,
         status: 'computed',
         sourceUnitSystem,
@@ -484,15 +683,11 @@ async function recordHistory(loadPlanId: string, action: string) {
 
 type PlanRow = typeof ldLoadPlans.$inferSelect;
 type ItemRow = typeof ldLoadItems.$inferSelect;
+type FleetVehicleRow = typeof fleetVehicles.$inferSelect;
 
-/** Reconstructs a shared LoadPlan (with placed items) from persisted rows. */
-function toLoadPlan(
-  plan: PlanRow,
-  trailer: TrailerRow,
-  itemRows: ItemRow[],
-  displayUnitSystem: UnitSystem,
-): loadDiagram.LoadPlan {
-  const trailerProfile: loadDiagram.TrailerProfile = {
+/** Shapes a persisted trailer row into the shared TrailerProfile type. */
+function trailerRowToProfile(trailer: TrailerRow): loadDiagram.TrailerProfile {
+  return {
     id: trailer.id,
     name: trailer.name,
     internalLength: trailer.internalLength,
@@ -509,7 +704,96 @@ function toLoadPlan(
     },
     isTemplate: trailer.isTemplate,
   };
+}
 
+/**
+ * Builds a TrailerProfile from a fleet vehicle's platform so the packing engine
+ * can treat the vehicle as a single-axle open flatbed. Missing platform height
+ * defaults to an open-flatbed bound.
+ */
+function trailerFromVehicle(v: FleetVehicleRow): loadDiagram.TrailerProfile {
+  return {
+    id: v.id,
+    name: v.vehicleName,
+    internalLength: v.platformLength,
+    internalWidth: v.platformWidth,
+    internalHeight: v.platformHeight ?? loadDiagram.DEFAULT_OPEN_PLATFORM_HEIGHT_MM,
+    maxPayloadWeight: v.maxWeight,
+    axleCount: 1,
+    axleWeightLimits: [v.maxWeight],
+    displayUnitSystem: 'metric',
+    doorConfig: { rear: true, sideLeft: true, sideRight: true },
+    isTemplate: false,
+  };
+}
+
+/** Validates a manual fleet-vehicle create body. Returns an error string or null. */
+function validateVehicleBody(b: Record<string, unknown>): string | null {
+  if (!b.vehicleId || !String(b.vehicleId).trim()) return 'vehicleId is required.';
+  if (!b.vehicleName || !String(b.vehicleName).trim()) return 'vehicleName is required.';
+  for (const f of ['maxWeight', 'platformLength', 'platformWidth']) {
+    const n = Number(b[f]);
+    if (!Number.isFinite(n) || n <= 0) return `${f} must be a positive number.`;
+  }
+  return null;
+}
+
+/** Maps a manual fleet-vehicle body to a fleet_vehicles insert row (canonical). */
+function vehicleValuesFromBody(fleetId: string, b: Record<string, unknown>) {
+  const num = (v: unknown): number | null => {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    fleetId,
+    vehicleId: String(b.vehicleId),
+    vehicleName: String(b.vehicleName),
+    vehicleAccount: b.vehicleAccount ? String(b.vehicleAccount) : null,
+    licensePlate: b.licensePlate ? String(b.licensePlate) : null,
+    maxWeight: Number(b.maxWeight),
+    platformLength: Number(b.platformLength),
+    platformWidth: Number(b.platformWidth),
+    platformHeight: num(b.platformHeight),
+    costPerStop: num(b.costPerStop),
+    fixedCost: num(b.fixedCost),
+    costPerHour: num(b.costPerHour),
+    costPerKm: num(b.costPerKm),
+  };
+}
+
+/**
+ * Resolves the effective trailer profile for a plan — from its trailer profile
+ * or, for a fleet-vehicle plan, from the vehicle's platform. Returns null if
+ * neither can be found.
+ */
+async function resolvePlanTrailer(plan: PlanRow): Promise<loadDiagram.TrailerProfile | null> {
+  if (plan.trailerProfileId) {
+    const [trailer] = await db
+      .select()
+      .from(trailerProfiles)
+      .where(eq(trailerProfiles.id, plan.trailerProfileId))
+      .limit(1);
+    return trailer ? trailerRowToProfile(trailer) : null;
+  }
+  if (plan.fleetVehicleId) {
+    const [vehicle] = await db
+      .select()
+      .from(fleetVehicles)
+      .where(eq(fleetVehicles.id, plan.fleetVehicleId))
+      .limit(1);
+    return vehicle ? trailerFromVehicle(vehicle) : null;
+  }
+  return null;
+}
+
+/** Reconstructs a shared LoadPlan (with placed items) from persisted rows. */
+function toLoadPlan(
+  plan: PlanRow,
+  trailerProfile: loadDiagram.TrailerProfile,
+  itemRows: ItemRow[],
+  displayUnitSystem: UnitSystem,
+): loadDiagram.LoadPlan {
   const items: loadDiagram.PlacedItem[] = itemRows
     .filter((it) => it.placedOrientation != null)
     .map((it) => ({
