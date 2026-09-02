@@ -22,6 +22,7 @@ const TRAILER: TrailerProfile = {
   axleCount: 3,
   axleWeightLimits: [8000, 8000, 8000],
   displayUnitSystem: 'metric',
+  trailerType: 'enclosed',
   doorConfig: { rear: true, sideLeft: false, sideRight: false },
   isTemplate: false,
 };

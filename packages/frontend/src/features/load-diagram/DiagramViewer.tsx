@@ -185,9 +185,24 @@ export function DiagramViewer() {
   if (!plan || !plan.trailerProfile) return null;
 
   const stops = distinctStops(plan.items);
+  const warnings = plan.warnings ?? [];
 
   return (
     <div className="space-y-4">
+      {/* Advisory warnings — review-worthy, not hard errors. */}
+      {warnings.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          <p className="font-medium">
+            {warnings.length} placement warning{warnings.length === 1 ? '' : 's'} to review:
+          </p>
+          <ul className="mt-1 max-h-32 list-disc overflow-auto pl-5">
+            {warnings.map((w, i) => (
+              <li key={i}>{w.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-md border border-gray-300 bg-white p-0.5">
           {(['topDown', 'sideView', 'threeD'] as ViewMode[]).map((v) => (

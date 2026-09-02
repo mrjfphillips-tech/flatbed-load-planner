@@ -491,6 +491,7 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
           fleetId: fleet.id,
           vehicleId: v.vehicleId,
           vehicleName: v.vehicleName,
+          trailerType: v.trailerType,
           vehicleAccount: v.vehicleAccount ?? null,
           licensePlate: v.licensePlate ?? null,
           maxWeight: v.maxWeight,
@@ -736,6 +737,7 @@ async function computeAndPersistPlan(
     axleWeights: packing.axleWeights,
     placedCount: packing.placedItems.length,
     overflowItems: packing.overflowItems,
+    warnings: packing.warnings,
     sourceUnitSystem,
     displayUnitSystem,
   };
@@ -761,6 +763,7 @@ function trailerRowToProfile(trailer: TrailerRow): loadDiagram.TrailerProfile {
     axleCount: trailer.axleCount,
     axleWeightLimits: trailer.axleWeightLimits,
     displayUnitSystem: trailer.displayUnitSystem as UnitSystem,
+    trailerType: (trailer.trailerType as loadDiagram.TrailerType) ?? 'flatbed',
     doorConfig: (trailer.doorConfig as unknown as loadDiagram.DoorConfig) ?? {
       rear: true,
       sideLeft: false,
@@ -776,25 +779,41 @@ function trailerRowToProfile(trailer: TrailerRow): loadDiagram.TrailerProfile {
  * defaults to an open-flatbed bound.
  */
 function trailerFromVehicle(v: FleetVehicleRow): loadDiagram.TrailerProfile {
+  const trailerType = (v.trailerType as loadDiagram.TrailerType) ?? 'flatbed';
+  const isOpen = loadDiagram.OPEN_TRAILER_TYPES.includes(trailerType);
+  // Height bound: an explicit platform height wins; otherwise for open trailers
+  // use the suggested cargo-height (soft cap), and for enclosed fall back to the
+  // default open-platform height.
+  const internalHeight =
+    v.platformHeight ??
+    (isOpen
+      ? loadDiagram.suggestedCargoHeight(v.platformLength, v.platformWidth, v.maxWeight).heightMm
+      : loadDiagram.DEFAULT_OPEN_PLATFORM_HEIGHT_MM);
   return {
     id: v.id,
     name: v.vehicleName,
     internalLength: v.platformLength,
     internalWidth: v.platformWidth,
-    internalHeight: v.platformHeight ?? loadDiagram.DEFAULT_OPEN_PLATFORM_HEIGHT_MM,
+    internalHeight,
     maxPayloadWeight: v.maxWeight,
     axleCount: 1,
     axleWeightLimits: [v.maxWeight],
     displayUnitSystem: 'metric',
+    trailerType,
     doorConfig: { rear: true, sideLeft: true, sideRight: true },
     isTemplate: false,
   };
 }
 
+const VALID_TRAILER_TYPES = ['flatbed', 'curtainsider', 'enclosed'] as const;
+
 /** Validates a manual fleet-vehicle create body. Returns an error string or null. */
 function validateVehicleBody(b: Record<string, unknown>): string | null {
   if (!b.vehicleId || !String(b.vehicleId).trim()) return 'vehicleId is required.';
   if (!b.vehicleName || !String(b.vehicleName).trim()) return 'vehicleName is required.';
+  if (!VALID_TRAILER_TYPES.includes(b.trailerType as (typeof VALID_TRAILER_TYPES)[number])) {
+    return 'trailerType is required (flatbed, curtainsider, or enclosed).';
+  }
   for (const f of ['maxWeight', 'platformLength', 'platformWidth']) {
     const n = Number(b[f]);
     if (!Number.isFinite(n) || n <= 0) return `${f} must be a positive number.`;
@@ -813,6 +832,7 @@ function vehicleValuesFromBody(fleetId: string, b: Record<string, unknown>) {
     fleetId,
     vehicleId: String(b.vehicleId),
     vehicleName: String(b.vehicleName),
+    trailerType: b.trailerType as (typeof VALID_TRAILER_TYPES)[number],
     vehicleAccount: b.vehicleAccount ? String(b.vehicleAccount) : null,
     licensePlate: b.licensePlate ? String(b.licensePlate) : null,
     maxWeight: Number(b.maxWeight),
@@ -892,5 +912,7 @@ function toLoadPlan(
     sourceUnitSystem: plan.sourceUnitSystem as UnitSystem,
     displayUnitSystem,
     status: plan.status as loadDiagram.LoadPlanStatus,
+    // Derived from placement + trailer type (deterministic; not persisted).
+    warnings: loadDiagram.generateWarnings(items, trailerProfile),
   };
 }

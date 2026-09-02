@@ -22,6 +22,12 @@ import {
 
 export const unitSystemEnum = pgEnum('ld_unit_system', ['metric', 'imperial']);
 
+export const trailerTypeEnum = pgEnum('ld_trailer_type', [
+  'flatbed',
+  'curtainsider',
+  'enclosed',
+]);
+
 export const ldPlanStatusEnum = pgEnum('ld_plan_status', [
   'draft',
   'computed',
@@ -45,6 +51,7 @@ export const trailerProfiles = pgTable(
     axleCount: integer('axle_count').notNull(),
     axleWeightLimits: json('axle_weight_limits').$type<number[]>().notNull(), // kg per axle
     displayUnitSystem: unitSystemEnum('display_unit_system').notNull().default('metric'),
+    trailerType: trailerTypeEnum('trailer_type').notNull().default('flatbed'),
     doorConfig: json('door_config').$type<Record<string, unknown>>(),
     isTemplate: boolean('is_template').notNull().default(false),
     createdBy: text('created_by'),

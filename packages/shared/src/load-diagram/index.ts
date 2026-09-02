@@ -5,6 +5,7 @@
 // ─── Types ───────────────────────────────────────────────────────────────────
 export type {
   UnitSystem,
+  TrailerType,
   DoorConfig,
   TrailerProfile,
   LoadItem,
@@ -13,6 +14,8 @@ export type {
   LoadPlanStatus,
   LoadPlan,
   PackingResult,
+  PackingWarningType,
+  PackingWarning,
   ValidationError,
   ExcelParseResult,
   ConstraintViolationType,
@@ -22,7 +25,11 @@ export type {
   Fleet,
   FleetVehicleParseResult,
 } from './types';
-export { DEFAULT_OPEN_PLATFORM_HEIGHT_MM } from './types';
+export { DEFAULT_OPEN_PLATFORM_HEIGHT_MM, OPEN_TRAILER_TYPES } from './types';
+
+// ─── Suggested Cargo Height ─────────────────────────────────────────────────────
+export { suggestedCargoHeight } from './suggested-height';
+export type { SuggestedHeightOptions, SuggestedHeightResult } from './suggested-height';
 
 // ─── Unit Conversion & Formatting ────────────────────────────────────────────
 export {
@@ -54,7 +61,7 @@ export {
 export type { StackabilityClass } from './constants';
 
 // ─── Packing Engine ────────────────────────────────────────────────────────────
-export { computeLoadPlan, calculateAxleWeights } from './packing-engine';
+export { computeLoadPlan, calculateAxleWeights, generateWarnings } from './packing-engine';
 export type { PackingConstraints } from './packing-engine';
 
 // ─── Constraint Validator ──────────────────────────────────────────────────────
@@ -74,10 +81,13 @@ export {
   FLEET_ALL_FIELDS,
   FLEET_FIELD_LABELS,
   autoMapFleetColumns,
+  guessUnitsFromSamples,
+  normalizeTrailerType,
 } from './fleet-mapping';
 export type {
   FleetLengthUnit,
   FleetWeightUnit,
   FleetField,
   FleetColumnMapping,
+  GuessedUnits,
 } from './fleet-mapping';

@@ -6,6 +6,7 @@ import {
   autoMapFleetColumns,
   fleetLengthToCanonical,
   fleetWeightToCanonical,
+  guessUnitsFromSamples,
 } from './fleet-mapping';
 
 describe('flexible unit conversion', () => {
@@ -75,5 +76,34 @@ describe('autoMapFleetColumns', () => {
     const m = autoMapFleetColumns(['name', 'weight', 'length', 'width']);
     const values = Object.values(m);
     expect(new Set(values).size).toBe(values.length);
+  });
+});
+
+describe('guessUnitsFromSamples', () => {
+  it('guesses meters/tonnes for the Callao-style values', () => {
+    // Platform lengths ~6-9, weights ~6-16 (m / t).
+    const g = guessUnitsFromSamples([6, 9.2, 6], [9, 16, 6]);
+    expect(g.lengthUnit).toBe('m');
+    expect(g.weightUnit).toBe('t');
+    expect(g.lengthConfident).toBe(true);
+    expect(g.weightConfident).toBe(true);
+  });
+
+  it('guesses mm/kg for large metric values', () => {
+    const g = guessUnitsFromSamples([13600, 13600], [24000, 24000]);
+    expect(g.lengthUnit).toBe('mm');
+    expect(g.weightUnit).toBe('kg');
+  });
+
+  it('guesses inches/pounds for imperial-scale values', () => {
+    const g = guessUnitsFromSamples([636, 576], [80000, 90000]);
+    expect(g.lengthUnit).toBe('in');
+    expect(g.weightUnit).toBe('lb');
+  });
+
+  it('handles empty/invalid samples without throwing', () => {
+    const g = guessUnitsFromSamples([], []);
+    expect(g.lengthUnit).toBeDefined();
+    expect(g.weightUnit).toBeDefined();
   });
 });

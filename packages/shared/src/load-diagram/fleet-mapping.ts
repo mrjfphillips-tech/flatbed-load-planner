@@ -11,6 +11,7 @@
 // mapping UI agree.
 
 import { MM_PER_INCH, KG_PER_POUND } from './units';
+import type { TrailerType } from './types';
 
 // ─── Flexible input units ────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ export const FLEET_WEIGHT_UNITS: FleetWeightUnit[] = ['kg', 't', 'lb'];
 export type FleetField =
   | 'vehicleId'
   | 'vehicleName'
+  | 'trailerType'
   | 'vehicleAccount'
   | 'licensePlate'
   | 'maxWeight'
@@ -80,6 +82,7 @@ export const FLEET_REQUIRED_FIELDS: FleetField[] = [
 export const FLEET_ALL_FIELDS: FleetField[] = [
   'vehicleId',
   'vehicleName',
+  'trailerType',
   'vehicleAccount',
   'licensePlate',
   'maxWeight',
@@ -96,6 +99,7 @@ export const FLEET_ALL_FIELDS: FleetField[] = [
 export const FLEET_FIELD_LABELS: Record<FleetField, string> = {
   vehicleId: 'Vehicle ID',
   vehicleName: 'Vehicle name',
+  trailerType: 'Trailer type',
   vehicleAccount: 'Vehicle account',
   licensePlate: 'License plate',
   maxWeight: 'Max weight',
@@ -118,6 +122,7 @@ export const FLEET_FIELD_LABELS: Record<FleetField, string> = {
 const FLEET_FIELD_ALIASES: Record<FleetField, string[]> = {
   vehicleId: ['vehicle id', 'vehicleid', 'unit id', 'unit', 'id', 'truck id', 'asset id'],
   vehicleName: ['vehicle name', 'vehiclename', 'name', 'vehicle', 'truck', 'model', 'description'],
+  trailerType: ['trailer type', 'trailertype', 'type', 'vehicle type', 'body type', 'trailer', 'tipo'],
   vehicleAccount: ['vehicle account', 'account', 'customer', 'client', 'owner'],
   licensePlate: ['license plate', 'licence plate', 'plate', 'registration', 'reg', 'placa', 'matricula'],
   maxWeight: ['max weight', 'maxweight', 'weight', 'capacity', 'payload', 'max payload', 'gvw', 'peso'],
@@ -162,6 +167,109 @@ function fieldScore(field: FleetField, column: string): number {
     best = Math.max(best, similarity(cand, column));
   }
   return best;
+}
+
+// ─── Trailer type normalization ──────────────────────────────────────────────
+
+/**
+ * Normalizes a raw trailer-type cell value into a TrailerType. Tolerates common
+ * synonyms (box/van/reefer -> enclosed, curtain/tautliner -> curtainsider,
+ * flat/deck -> flatbed). Returns undefined when the value can't be classified,
+ * so the caller can default (to flatbed) or prompt.
+ */
+export function normalizeTrailerType(raw: string | undefined): TrailerType | undefined {
+  if (!raw) return undefined;
+  const s = raw.toLowerCase().replace(/[^a-z]+/g, '');
+  if (!s) return undefined;
+  if (/(flat|deck|plataforma|lowboy|stepdeck)/.test(s)) return 'flatbed';
+  if (/(curtain|tautliner|curtainsider|toldo)/.test(s)) return 'curtainsider';
+  if (/(box|van|enclosed|reefer|dry|furgon|caja)/.test(s)) return 'enclosed';
+  return undefined;
+}
+
+// ─── Unit guessing from sample values ────────────────────────────────────────
+
+export interface GuessedUnits {
+  lengthUnit: FleetLengthUnit;
+  weightUnit: FleetWeightUnit;
+  /** True when the guess is confident enough to trust without prompting. */
+  lengthConfident: boolean;
+  weightConfident: boolean;
+}
+
+function median(nums: number[]): number | null {
+  const xs = nums.filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+  if (xs.length === 0) return null;
+  const mid = Math.floor(xs.length / 2);
+  return xs.length % 2 ? xs[mid] : (xs[mid - 1] + xs[mid]) / 2;
+}
+
+/**
+ * Infers the most likely input units from sample platform-length and max-weight
+ * values, assuming a real road vehicle. A truck platform is roughly 2–30 m long
+ * and carries hundreds of kg up to a few tens of tonnes. We compare the sample
+ * magnitude against what each unit would imply and pick the unit whose implied
+ * real-world size is sensible.
+ *
+ * Examples:
+ *   length ~6      -> meters   (6 m platform)
+ *   length ~600    -> cm       (6 m)
+ *   length ~6000   -> mm       (6 m)
+ *   length ~240    -> inches   (~6 m) — ambiguous with cm; cm preferred
+ *   weight ~9      -> tonnes   (9 t)
+ *   weight ~9000   -> kg       (9 t)
+ *   weight ~20000  -> lb       (~9 t) — or kg (20 t); kg preferred for round trucks
+ */
+export function guessUnitsFromSamples(
+  lengthSamples: number[],
+  weightSamples: number[],
+): GuessedUnits {
+  const len = median(lengthSamples);
+  const wt = median(weightSamples);
+
+  // Length: pick the unit whose value lands a platform in the ~1–30 m band.
+  let lengthUnit: FleetLengthUnit = 'mm';
+  let lengthConfident = false;
+  if (len != null) {
+    if (len >= 1.5 && len <= 40) {
+      lengthUnit = 'm';
+      lengthConfident = true;
+    } else if (len >= 60 && len <= 600) {
+      // 6–20 ft would land here too, but cm is the common metric case.
+      lengthUnit = 'cm';
+      lengthConfident = true;
+    } else if (len > 600 && len <= 1600) {
+      // ~50–130 in (imperial platform width/length in inches).
+      lengthUnit = 'in';
+      lengthConfident = true;
+    } else if (len > 1600 && len <= 40000) {
+      lengthUnit = 'mm';
+      lengthConfident = true;
+    } else if (len > 40 && len < 60) {
+      // ~15 m in feet.
+      lengthUnit = 'ft';
+      lengthConfident = false;
+    }
+  }
+
+  // Weight: pick the unit whose value lands a payload in the ~0.1–40 t band.
+  let weightUnit: FleetWeightUnit = 'kg';
+  let weightConfident = false;
+  if (wt != null) {
+    if (wt >= 1 && wt <= 60) {
+      weightUnit = 't';
+      weightConfident = true;
+    } else if (wt >= 200 && wt <= 60000) {
+      // Could be kg (0.2–60 t) or lb; kg is the common metric case.
+      weightUnit = 'kg';
+      weightConfident = true;
+    } else if (wt > 60000 && wt <= 130000) {
+      weightUnit = 'lb';
+      weightConfident = true;
+    }
+  }
+
+  return { lengthUnit, lengthConfident, weightUnit, weightConfident };
 }
 
 /**

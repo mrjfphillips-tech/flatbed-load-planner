@@ -20,6 +20,7 @@ export function fleetTemplateColumns(unitSystem: UnitSystem): string[] {
   return [
     'Vehicle_ID',
     'Vehicle_Name',
+    'Trailer_Type',
     'Vehicle_Account',
     'License_Plate',
     dim.maxWeight,
@@ -47,6 +48,7 @@ function instructionRows(unitSystem: UnitSystem): ColumnDoc[] {
   return [
     { column: 'Vehicle_ID', meaning: 'Unique vehicle identifier (required).', example: 'TRK-001' },
     { column: 'Vehicle_Name', meaning: 'Human-readable name (required).', example: 'Volvo FH 4x2' },
+    { column: 'Trailer_Type', meaning: 'flatbed, curtainsider, or enclosed (required; defaults to flatbed).', example: 'flatbed' },
     { column: 'Vehicle_Account', meaning: 'Optional owning account / customer.', example: 'ACME Logistics' },
     { column: 'License_Plate', meaning: 'Optional plate number.', example: 'ABC-1234' },
     { column: dim.maxWeight, meaning: `Maximum payload weight in ${wt} (required, > 0).`, example: isMetric ? '24000' : '52910' },

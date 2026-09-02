@@ -22,7 +22,10 @@ import type {
   ItemOrientation,
   TrailerProfile,
   PackingResult,
+  PackingWarning,
 } from './types';
+import { OPEN_TRAILER_TYPES } from './types';
+import { suggestedCargoHeight } from './suggested-height';
 
 // ─── Internal geometry helpers ───────────────────────────────────────────────
 
@@ -111,6 +114,55 @@ function enumerateOrientations(item: LoadItem): OrientedDims[] {
     }
   }
   return result;
+}
+
+// ─── Item shape classification & orientation preference ──────────────────────
+
+/** An item is "flat/sheet-like" when one dimension is much smaller than the others. */
+function isFlatItem(item: LoadItem): boolean {
+  const dims = [item.length, item.width, item.height].sort((a, b) => a - b);
+  const [smallest, , largest] = dims;
+  // Smallest dimension is a small fraction of the largest (a thin panel/sheet).
+  return largest > 0 && smallest / largest <= 0.25;
+}
+
+/** An item is "long" when its largest dimension dominates the other two. */
+function isLongItem(item: LoadItem): boolean {
+  const dims = [item.length, item.width, item.height].sort((a, b) => a - b);
+  const [, mid, largest] = dims;
+  return mid > 0 && largest / mid >= 3;
+}
+
+/**
+ * Decides whether an oriented placement stands the item "unnaturally" for an
+ * open (flatbed/curtainsider) trailer:
+ *  - a flat item is on edge when its own smallest dimension is NOT the vertical one;
+ *  - a long item is upright when its own largest dimension IS the vertical one.
+ */
+function isDiscouragedOrientation(item: LoadItem, dims: OrientedDims): boolean {
+  const all = [item.length, item.width, item.height];
+  const smallest = Math.min(...all);
+  const largest = Math.max(...all);
+  if (isFlatItem(item) && Math.abs(dims.dz - smallest) > EPS) return true;
+  if (isLongItem(item) && Math.abs(dims.dz - largest) <= EPS) return true;
+  return false;
+}
+
+/**
+ * Orders orientations for placement. For open trailers, "natural" orientations
+ * (flat items lying flat, long items lying down) come first; discouraged ones
+ * are tried last so they're only used when nothing else fits. For enclosed
+ * trailers, all orientations are equally acceptable (vertical stacking is fine).
+ */
+function orderedOrientations(
+  item: LoadItem,
+  trailer: TrailerProfile,
+): OrientedDims[] {
+  const all = enumerateOrientations(item);
+  if (!OPEN_TRAILER_TYPES.includes(trailer.trailerType)) return all;
+  const natural = all.filter((d) => !isDiscouragedOrientation(item, d));
+  const discouraged = all.filter((d) => isDiscouragedOrientation(item, d));
+  return [...natural, ...discouraged];
 }
 
 // ─── Sorting ─────────────────────────────────────────────────────────────────
@@ -434,7 +486,7 @@ export function computeLoadPlan(
   let loadSequence = 1;
 
   for (const item of sorted) {
-    const orientations = enumerateOrientations(item);
+    const orientations = orderedOrientations(item, trailer);
 
     let best: {
       point: Point;
@@ -482,7 +534,14 @@ export function computeLoadPlan(
         const totalWeight = placed.reduce((s, p) => s + p.weight, 0) + item.weight;
         if (totalWeight > trailer.maxPayloadWeight + EPS) continue;
 
-        const score = scorePlacement(point, trailer);
+        // For open trailers, penalize discouraged orientations so a natural
+        // one always wins when available; discouraged is a last resort.
+        const orientationPenalty =
+          OPEN_TRAILER_TYPES.includes(trailer.trailerType) &&
+          isDiscouragedOrientation(item, dims)
+            ? 1e18
+            : 0;
+        const score = orientationPenalty + scorePlacement(point, trailer);
         if (best === null || score < best.score) {
           best = { point, dims, score };
         }
@@ -539,12 +598,70 @@ export function computeLoadPlan(
   const volumeUtilization =
     trailerVolume > 0 ? (usedVolume / trailerVolume) * 100 : 0;
 
+  const warnings = generateWarnings(placed, trailer);
+
   return {
     placedItems: placed,
     overflowItems: overflow,
     volumeUtilization,
     totalWeight,
     axleWeights,
+    warnings,
     computeTimeMs: Date.now() - start,
   };
+}
+
+// ─── Advisory warnings ───────────────────────────────────────────────────────
+
+/**
+ * Produces advisory warnings for placements that fall outside normal loading
+ * practice on an open trailer — items stood on edge/upright, or stacks taller
+ * than the suggested cargo-height cap. These never block a plan; they flag it
+ * for review. Enclosed trailers get no orientation warnings (vertical is fine).
+ */
+export function generateWarnings(
+  placed: PlacedItem[],
+  trailer: TrailerProfile,
+): PackingWarning[] {
+  const warnings: PackingWarning[] = [];
+  const isOpen = OPEN_TRAILER_TYPES.includes(trailer.trailerType);
+
+  if (isOpen) {
+    for (const it of placed) {
+      const dims = orient(it, it.placedOrientation);
+      if (isFlatItem(it) && isDiscouragedOrientation(it, dims)) {
+        warnings.push({
+          type: 'flat_item_on_edge',
+          itemId: it.id,
+          message: `${it.itemId} is a flat item placed on its edge — flatbeds normally carry these lying flat.`,
+        });
+      } else if (isLongItem(it) && isDiscouragedOrientation(it, dims)) {
+        warnings.push({
+          type: 'long_item_upright',
+          itemId: it.id,
+          message: `${it.itemId} is a long item standing upright — it would normally lie lengthwise on the deck.`,
+        });
+      }
+    }
+
+    // Suggested-height cap: flag stacks taller than the derived suggestion.
+    const cap = suggestedCargoHeight(
+      trailer.internalLength,
+      trailer.internalWidth,
+      trailer.maxPayloadWeight,
+    ).heightMm;
+    for (const it of placed) {
+      const dims = orient(it, it.placedOrientation);
+      const top = it.placedZ + dims.dz;
+      if (top > cap + EPS) {
+        warnings.push({
+          type: 'exceeds_suggested_height',
+          itemId: it.id,
+          message: `${it.itemId} reaches ${Math.round(top)} mm, above the suggested cargo height of ${cap} mm — review securement/clearance.`,
+        });
+      }
+    }
+  }
+
+  return warnings;
 }

@@ -6,7 +6,7 @@ import {
   timestamp,
   index,
 } from 'drizzle-orm/pg-core';
-import { unitSystemEnum } from './load-diagram';
+import { unitSystemEnum, trailerTypeEnum } from './load-diagram';
 
 // ─── Customer Fleet: Schema ───────────────────────────────────────────────────
 // Feature: load-diagram-generator (Customer Fleet)
@@ -39,6 +39,8 @@ export const fleetVehicles = pgTable(
       .references(() => fleets.id, { onDelete: 'cascade' }),
     vehicleId: varchar('vehicle_id', { length: 255 }).notNull(),
     vehicleName: varchar('vehicle_name', { length: 255 }).notNull(),
+    // Source of truth for packing rules. Defaults to flatbed for existing rows.
+    trailerType: trailerTypeEnum('trailer_type').notNull().default('flatbed'),
     vehicleAccount: varchar('vehicle_account', { length: 255 }),
     licensePlate: varchar('license_plate', { length: 64 }),
     // Canonical mm / kg.

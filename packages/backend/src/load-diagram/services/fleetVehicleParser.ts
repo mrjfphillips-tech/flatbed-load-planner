@@ -286,10 +286,16 @@ export async function parseFleetVehicleFile(
       continue;
     }
 
+    // Trailer type: normalize the mapped cell; default to flatbed when absent
+    // or unrecognized (the common carrier case).
+    const trailerType =
+      loadDiagram.normalizeTrailerType(toStringValue(cell(row, 'trailerType'))) ?? 'flatbed';
+
     vehicles.push({
       id: `${vehicleId}-r${r}`,
       vehicleId: vehicleId!,
       vehicleName: vehicleName!,
+      trailerType,
       vehicleAccount: toStringValue(cell(row, 'vehicleAccount')),
       licensePlate: toStringValue(cell(row, 'licensePlate')),
       maxWeight: canonicalMaxWeight,

@@ -38,7 +38,16 @@ const {
   FLEET_FIELD_LABELS,
   FLEET_LENGTH_UNITS,
   FLEET_WEIGHT_UNITS,
+  guessUnitsFromSamples,
+  fleetLengthToCanonical,
+  fleetWeightToCanonical,
 } = loadDiagram;
+
+const TRAILER_TYPE_OPTIONS: { value: loadDiagram.TrailerType; label: string }[] = [
+  { value: 'flatbed', label: 'Flatbed (open deck)' },
+  { value: 'curtainsider', label: 'Curtainsider (soft sides)' },
+  { value: 'enclosed', label: 'Enclosed (box / van)' },
+];
 
 const {
   formatLength,
@@ -152,6 +161,21 @@ function CreateFleetPanel({
       const result = await inspectFleet(selected);
       setInspection(result);
       setMapping(result.suggestedMapping);
+
+      // Auto-guess the input units from the sample values so the pickers start
+      // on the most likely setting (e.g. platform length of 6 => meters).
+      const numsFor = (field: loadDiagram.FleetField): number[] => {
+        const col = result.suggestedMapping[field];
+        if (!col) return [];
+        return result.sampleRows
+          .map((row) => Number(String(row[col] ?? '').replace(/,/g, '')))
+          .filter((n) => Number.isFinite(n) && n > 0);
+      };
+      const lengthSamples = [...numsFor('platformLength'), ...numsFor('platformWidth')];
+      const weightSamples = numsFor('maxWeight');
+      const guess = guessUnitsFromSamples(lengthSamples, weightSamples);
+      setLengthUnit(guess.lengthUnit);
+      setWeightUnit(guess.weightUnit);
     } catch (e) {
       setError((e as Error).message);
       setInspection(null);
@@ -271,6 +295,14 @@ function CreateFleetPanel({
             </label>
           </div>
 
+          {/* Live conversion preview from the first sample row */}
+          <ConversionPreview
+            inspection={inspection}
+            mapping={mapping}
+            lengthUnit={lengthUnit}
+            weightUnit={weightUnit}
+          />
+
           {/* Field -> column mapping */}
           <div className="space-y-1.5">
             {FLEET_ALL_FIELDS.map((field) => {
@@ -367,6 +399,7 @@ function FleetListPanel({
 const EMPTY_FORM = {
   vehicleId: '',
   vehicleName: '',
+  trailerType: 'flatbed' as loadDiagram.TrailerType,
   vehicleAccount: '',
   licensePlate: '',
   maxWeight: '',
@@ -428,6 +461,7 @@ function VehiclePanel({
       await addFleetVehicle(fleetId, {
         vehicleId: form.vehicleId.trim(),
         vehicleName: form.vehicleName.trim(),
+        trailerType: form.trailerType,
         vehicleAccount: form.vehicleAccount.trim() || undefined,
         licensePlate: form.licensePlate.trim() || undefined,
         maxWeight: weightToCanonical(Number(form.maxWeight), unit),
@@ -525,6 +559,18 @@ function VehiclePanel({
         <div className="grid gap-3 p-3 sm:grid-cols-2">
           <Field label="Vehicle ID *" value={form.vehicleId} onChange={(v) => set('vehicleId', v)} />
           <Field label="Vehicle name *" value={form.vehicleName} onChange={(v) => set('vehicleName', v)} />
+          <label className="block text-sm">
+            <span className="text-gray-700">Trailer type *</span>
+            <select
+              value={form.trailerType}
+              onChange={(e) => set('trailerType', e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            >
+              {TRAILER_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
           <Field label="Vehicle account" value={form.vehicleAccount} onChange={(v) => set('vehicleAccount', v)} />
           <Field label="License plate" value={form.licensePlate} onChange={(v) => set('licensePlate', v)} />
           <Field label={`Max weight (${wt}) *`} value={form.maxWeight} onChange={(v) => set('maxWeight', v)} numeric />
@@ -547,6 +593,71 @@ function VehiclePanel({
           </div>
         </div>
       </details>
+    </div>
+  );
+}
+
+/**
+ * Shows how the first sample row's platform/weight values convert to canonical
+ * mm/kg under the chosen units, and flags an implausible result (a likely unit
+ * mistake) before the user imports.
+ */
+function ConversionPreview({
+  inspection,
+  mapping,
+  lengthUnit,
+  weightUnit,
+}: {
+  inspection: FleetInspectResult;
+  mapping: FleetColumnMapping;
+  lengthUnit: FleetLengthUnit;
+  weightUnit: FleetWeightUnit;
+}) {
+  const sample = inspection.sampleRows[0];
+  if (!sample) return null;
+
+  const raw = (field: loadDiagram.FleetField): number | null => {
+    const col = mapping[field];
+    if (!col) return null;
+    const n = Number(String(sample[col] ?? '').replace(/,/g, ''));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const lenRaw = raw('platformLength');
+  const widRaw = raw('platformWidth');
+  const wtRaw = raw('maxWeight');
+
+  const lenMm = lenRaw != null ? fleetLengthToCanonical(lenRaw, lengthUnit) : null;
+  const widMm = widRaw != null ? fleetLengthToCanonical(widRaw, lengthUnit) : null;
+  const wtKg = wtRaw != null ? fleetWeightToCanonical(wtRaw, weightUnit) : null;
+
+  // Same plausibility floors as the backend guard.
+  const tooSmall =
+    (lenMm != null && lenMm < 500) ||
+    (widMm != null && widMm < 500) ||
+    (wtKg != null && wtKg < 100);
+
+  return (
+    <div
+      className={`rounded-md border p-2 text-xs ${
+        tooSmall ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-gray-200 bg-white text-gray-600'
+      }`}
+    >
+      <div className="font-medium">Preview (first row → stored values):</div>
+      <div>
+        Platform:{' '}
+        {lenMm != null ? `${lenRaw} ${lengthUnit} → ${(lenMm / 1000).toFixed(2)} m` : '—'}
+        {' × '}
+        {widMm != null ? `${widRaw} ${lengthUnit} → ${(widMm / 1000).toFixed(2)} m` : '—'}
+        {'  ·  Max weight: '}
+        {wtKg != null ? `${wtRaw} ${weightUnit} → ${(wtKg / 1000).toFixed(2)} t` : '—'}
+      </div>
+      {tooSmall && (
+        <div className="mt-1 font-medium">
+          These look too small for a real vehicle — check the units above (e.g. meters/tonnes rather
+          than mm/kg).
+        </div>
+      )}
     </div>
   );
 }

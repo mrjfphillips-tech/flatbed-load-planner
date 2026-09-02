@@ -13,6 +13,19 @@ export type UnitSystem = 'metric' | 'imperial';
 
 // ─── Trailer Configuration ───────────────────────────────────────────────────
 
+/**
+ * The kind of vehicle/trailer, which drives packing rules:
+ * - `flatbed`      — open deck, no roof or sides; keep items flat/long lying down,
+ *                    height is a soft cap (flag, not a wall).
+ * - `curtainsider` — flatbed-like packing with soft sides; same soft-height behavior.
+ * - `enclosed`     — box/van; the roof is a hard height ceiling and vertical
+ *                    stacking is expected.
+ */
+export type TrailerType = 'flatbed' | 'curtainsider' | 'enclosed';
+
+/** Trailer types whose height is a soft, advisory cap rather than a hard wall. */
+export const OPEN_TRAILER_TYPES: TrailerType[] = ['flatbed', 'curtainsider'];
+
 /** Loading door configuration for a trailer. */
 export interface DoorConfig {
   rear: boolean;
@@ -40,6 +53,8 @@ export interface TrailerProfile {
   axleWeightLimits: number[];
   /** Preferred display units for this profile. */
   displayUnitSystem: UnitSystem;
+  /** Vehicle type driving packing rules (defaults to flatbed for open decks). */
+  trailerType: TrailerType;
   doorConfig: DoorConfig;
   isTemplate: boolean;
 }
@@ -105,6 +120,22 @@ export interface LoadPlan {
   status: LoadPlanStatus;
   /** Items that could not be placed within the trailer. */
   overflowItems?: LoadItem[];
+  /** Advisory warnings about unusual placements. */
+  warnings?: PackingWarning[];
+}
+
+/** The kind of advisory packing warning (review-worthy, not a hard failure). */
+export type PackingWarningType =
+  | 'flat_item_on_edge' // a flat/sheet-like item stood on its edge
+  | 'long_item_upright' // a long item stood vertically instead of lengthwise
+  | 'exceeds_suggested_height'; // a stack is taller than the suggested cap
+
+/** An advisory warning attached to a placed item — flags unusual practice. */
+export interface PackingWarning {
+  type: PackingWarningType;
+  message: string;
+  /** The `id` of the affected placed item. */
+  itemId: string;
 }
 
 /** The raw result of a packing computation. */
@@ -116,6 +147,8 @@ export interface PackingResult {
   totalWeight: number;
   /** Computed weight per axle, in canonical kg. */
   axleWeights: number[];
+  /** Advisory warnings about unusual placements (never block the plan). */
+  warnings: PackingWarning[];
   computeTimeMs: number;
 }
 
@@ -162,6 +195,8 @@ export interface FleetVehicle {
   /** Business identifier from the source data (e.g. unit number). */
   vehicleId: string;
   vehicleName: string;
+  /** Vehicle type — the source of truth that drives packing rules. */
+  trailerType: TrailerType;
   /** Optional owning account / customer reference. */
   vehicleAccount?: string;
   licensePlate?: string;
