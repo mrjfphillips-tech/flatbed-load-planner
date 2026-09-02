@@ -135,33 +135,39 @@ describe('golden reference load — C7D746', () => {
     expect(frac).toBeLessThan(DEFAULT_RULES_CONFIG.cog.maxLongitudinalFraction);
   });
 
-  it('raises no structural violations (overlap, support, stacking, layer, LIFO)', () => {
-    // The load must be structurally legal: nothing overlaps, everything is
-    // supported, class/layer/LIFO all hold. These are the correctness-critical
-    // rules the engine must never break.
-    const { errors } = validate(plan, DEFAULT_RULES_CONFIG);
-    const structural = errors.filter((e) =>
-      [
-        'PLACEMENT_COMPLETENESS', 'VEHICLE_ENVELOPE', 'NO_OVERLAP', 'SUPPORT_CONTINUITY',
-        'FLOOR_ONLY', 'MAX_STACK_WEIGHT', 'STACK_CLASS_COMPATIBILITY', 'CANONICAL_UNITS',
-        'PLAN_LAYER_ORDER', 'LIFO_DELIVERY_ORDER', 'LONG_ITEM_ORIENTATION',
-        'TEMPERATURE_ZONE', 'TRIP_SEGREGATION',
-      ].includes(e.rule),
-    );
-    if (structural.length > 0) {
-      throw new Error('Unexpected structural violations:\n' + structural.map((e) => `  ${e.rule}: ${e.rationale}`).join('\n'));
+  it('produces a fully legal load — the rules engine raises no errors', () => {
+    // With the balance-aware solver (symmetric lateral lane assignment), the
+    // real C7D746 load is legal end to end: nothing overlaps, everything is
+    // supported, class/layer/LIFO hold, and the load is neither longitudinally
+    // nor laterally out of balance.
+    const { errors, valid } = validate(plan, DEFAULT_RULES_CONFIG);
+    if (!valid) {
+      throw new Error('Unexpected violations:\n' + errors.map((e) => `  ${e.rule}: ${e.rationale}`).join('\n'));
     }
-    expect(structural).toEqual([]);
+    expect(errors).toEqual([]);
   });
 
-  // KNOWN LIMITATION (documented, tracked): the current solver packs long steel
-  // from one rail and is not yet lateral-balance-aware, so this real load comes
-  // out ~21% side-heavy — over the 10% AXLE_AND_COG limit. This test asserts the
-  // limitation explicitly so it's visible and so we're told the day the solver
-  // learns to balance (at which point flip this to expect zero errors).
-  it('flags the known lateral-imbalance limitation (solver not balance-aware yet)', () => {
-    const { errors } = validate(plan, DEFAULT_RULES_CONFIG);
-    const lateral = errors.filter((e) => e.rule === 'AXLE_AND_COG' && /lopsided|side-to-side/.test(e.rationale));
-    expect(lateral.length).toBeGreaterThan(0);
+  it('keeps the load laterally balanced within the 10% limit', () => {
+    // The solver mirrors long parallel stock across the centerline. Confirm the
+    // resulting side-to-side split is within the AXLE_AND_COG lateral limit.
+    const yc = VEHICLE.internalWidth / 2;
+    let left = 0;
+    let right = 0;
+    for (const p of result.placedItems) {
+      const dims = ORIENTED_DY[p.placedOrientation];
+      const cogY = p.placedY + dims(p) / 2;
+      if (cogY < yc) left += p.weight;
+      else right += p.weight;
+    }
+    const total = left + right;
+    const imbalance = Math.abs(left - right) / total;
+    expect(imbalance).toBeLessThanOrEqual(DEFAULT_RULES_CONFIG.cog.maxLateralImbalanceFraction);
   });
 });
+
+// Maps a placed orientation to the item dimension that lies along Y (dy).
+const ORIENTED_DY: Record<string, (p: { length: number; width: number; height: number }) => number> = {
+  LWH: (p) => p.width, LHW: (p) => p.height,
+  WLH: (p) => p.length, WHL: (p) => p.height,
+  HLW: (p) => p.length, HWL: (p) => p.width,
+};

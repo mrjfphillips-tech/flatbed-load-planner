@@ -459,16 +459,49 @@ function axleWeightsWithinLimits(
 // ─── Placement scoring ───────────────────────────────────────────────────────
 
 /**
- * Scores a feasible placement — lower is better. Prefer lower Z (keep the load
- * low), then higher X (pack toward the back / doors first so earlier stops end
- * up nearest the doors), then lower Y for determinism.
+ * Weight-times-lateral-offset moment about the deck centerline for a set of
+ * placed items. Positive = right-heavy, negative = left-heavy (canonical mm·kg).
+ * Used to keep long parallel-laid stock (steel, lumber, pipe, poles) mirrored
+ * across the centerline rather than piled against one rail.
  */
-function scorePlacement(point: Point, trailer: TrailerProfile): number {
+function lateralMoment(placedItems: PlacedItem[], trailer: TrailerProfile): number {
+  const yc = trailer.internalWidth / 2;
+  let moment = 0;
+  for (const it of placedItems) {
+    const dims = orient(it, it.placedOrientation);
+    const cogY = it.placedY + dims.dy / 2;
+    moment += it.weight * (cogY - yc);
+  }
+  return moment;
+}
+
+/**
+ * Scores a feasible placement — lower is better. Lexicographic priority:
+ *   1. lower Z            (keep the load low)
+ *   2. higher X           (pack toward the back / doors first)
+ *   3. lateral balance    (keep the running side-to-side CoG near centerline)
+ *   4. lower Y            (deterministic final tiebreaker)
+ *
+ * The lateral-balance term replaces the old raw left-rail (y=0) bias: long,
+ * heavy items now alternate across the centerline so the load stays balanced.
+ * It is weighted BELOW z and x, so we never trade a low, correctly
+ * longitudinally-placed load for balance — balance only breaks ties among
+ * otherwise-equal placements. `balanceOffset` is the projected distance of the
+ * lateral CoG from the centerline if this candidate were chosen (mm).
+ */
+function scorePlacement(
+  point: Point,
+  trailer: TrailerProfile,
+  balanceOffset: number,
+): number {
   const zTerm = point.z; // minimize height
   const xTerm = trailer.internalLength - point.x; // minimize => maximize X
+  const balanceTerm = balanceOffset; // minimize CoG distance from centerline
   const yTerm = point.y;
   // Weighted lexicographic ordering collapsed into a single comparable number.
-  return zTerm * 1e12 + xTerm * 1e6 + yTerm;
+  // Scales chosen so each term strictly dominates the next given realistic
+  // deck dimensions (< 1e6 mm length, < ~1e4 mm width offsets).
+  return zTerm * 1e18 + xTerm * 1e12 + balanceTerm * 1e3 + yTerm;
 }
 
 // ─── Main packing routine ────────────────────────────────────────────────────
@@ -508,8 +541,22 @@ export function computeLoadPlan(
       score: number;
     } | null = null;
 
-    for (const point of sortExtremePoints(extremePoints)) {
+    for (const basePoint of sortExtremePoints(extremePoints)) {
       for (const dims of orientations) {
+        // Each extreme point yields two lateral candidates: the point as-is
+        // (grows from the left rail) and its mirror across the deck centerline
+        // (grows from the right rail). This gives the balance-aware scorer a
+        // genuine left-vs-right choice so long parallel stock alternates sides
+        // instead of piling on one rail. Duplicates (symmetric placements)
+        // collapse naturally since they score identically.
+        const mirroredY = trailer.internalWidth - dims.dy - basePoint.y;
+        const candidateYs =
+          Math.abs(mirroredY - basePoint.y) <= EPS
+            ? [basePoint.y]
+            : [basePoint.y, mirroredY];
+
+        for (const cy of candidateYs) {
+        const point: Point = { x: basePoint.x, y: cy, z: basePoint.z };
         const box = boxOf(point, dims);
 
         // Trailer bounds.
@@ -553,12 +600,20 @@ export function computeLoadPlan(
         const orientationPenalty =
           OPEN_TRAILER_TYPES.includes(trailer.trailerType) &&
           isDiscouragedOrientation(item, dims)
-            ? 1e18
+            ? 1e30
             : 0;
-        const score = orientationPenalty + scorePlacement(point, trailer);
+        // Projected lateral-CoG distance from centerline if this candidate wins,
+        // so long parallel stock alternates left/right instead of piling on one
+        // rail. Uses the same `trial` already built for the axle check.
+        const balanceOffset =
+          Math.abs(lateralMoment([...placed, trial], trailer)) /
+          Math.max(1, totalWeight);
+        const score =
+          orientationPenalty + scorePlacement(point, trailer, balanceOffset);
         if (best === null || score < best.score) {
           best = { point, dims, score };
         }
+        } // candidateYs
       }
     }
 
