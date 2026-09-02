@@ -1,0 +1,1 @@
+ALTER TABLE "ld_load_plans" ALTER COLUMN "trailer_profile_id" DROP NOT NULL;

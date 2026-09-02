@@ -8,6 +8,41 @@
       "when": 1788205292480,
       "tag": "0000_powerful_rockslide",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788272650686,
+      "tag": "0001_clean_red_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788277468100,
+      "tag": "0002_fair_ares",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788356388355,
+      "tag": "0003_gigantic_maximus",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788357161378,
+      "tag": "0004_optimal_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788369253763,
+      "tag": "0005_noisy_serpent_society",
+      "breakpoints": true
     }
   ]
 }
