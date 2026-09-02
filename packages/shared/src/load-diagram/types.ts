@@ -135,6 +135,11 @@ export interface ExcelParseResult {
   items: LoadItem[];
   /** Unit system detected from the uploaded file. */
   detectedUnitSystem: UnitSystem;
+  /**
+   * Vehicle identifier read from an optional Vehicle_ID column, when the sheet
+   * consistently names one vehicle. Used to auto-assign a fleet vehicle.
+   */
+  detectedVehicleId?: string;
   errors: ValidationError[];
   summary: {
     totalItems: number;

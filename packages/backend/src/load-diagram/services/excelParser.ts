@@ -256,14 +256,23 @@ export async function parseExcelFile(buffer: Buffer): Promise<ExcelParseResult> 
   }
 
   const items: LoadItem[] = [];
+  const vehicleIds = new Set<string>();
+  const vehicleIdCol = headers.get('Vehicle_ID');
   // Row 1 is the header; data starts at row 2.
   for (let r = 2; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
     // Skip fully empty rows.
     if (!row.hasValues) continue;
+    if (vehicleIdCol) {
+      const v = toStringValue(row.getCell(vehicleIdCol).value);
+      if (v) vehicleIds.add(v);
+    }
     const item = parseRow(row, r, headers, unitSystem, errors);
     if (item) items.push(item);
   }
+
+  // Auto-assign only when the sheet names exactly one vehicle.
+  const detectedVehicleId = vehicleIds.size === 1 ? [...vehicleIds][0] : undefined;
 
   const totalItems = items.reduce((s, it) => s + it.quantity, 0);
   const totalWeight = items.reduce((s, it) => s + it.weight * it.quantity, 0);
@@ -275,6 +284,7 @@ export async function parseExcelFile(buffer: Buffer): Promise<ExcelParseResult> 
   return {
     items,
     detectedUnitSystem: unitSystem,
+    detectedVehicleId,
     errors,
     summary: { totalItems, totalWeight, totalVolume },
   };

@@ -533,6 +533,29 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // GET /api/load-diagram/fleet-vehicles/find?ref=...
+  // Finds a fleet vehicle across all fleets matching the reference by vehicleId,
+  // then license plate, then vehicle name (case-insensitive). Used to
+  // auto-assign a vehicle from a load sheet's Vehicle_ID column.
+  app.get<{ Querystring: { ref?: string } }>('/fleet-vehicles/find', async (request, reply) => {
+    const ref = (request.query.ref ?? '').trim();
+    if (!ref) return reply.status(400).send({ error: 'ref query parameter is required.' });
+
+    const all = await db.select().from(fleetVehicles);
+    const norm = (s: string | null) => (s ?? '').trim().toLowerCase();
+    const target = ref.toLowerCase();
+
+    const byId = all.find((v) => norm(v.vehicleId) === target);
+    const byPlate = byId ?? all.find((v) => norm(v.licensePlate) === target);
+    const match = byPlate ?? all.find((v) => norm(v.vehicleName) === target);
+
+    if (!match) return reply.status(404).send({ error: 'No matching fleet vehicle.' });
+
+    // Include the owning fleet name for display.
+    const [fleet] = await db.select().from(fleets).where(eq(fleets.id, match.fleetId)).limit(1);
+    return { vehicle: match, fleetId: match.fleetId, fleetName: fleet?.name ?? '' };
+  });
+
   // PUT /api/load-diagram/fleet-vehicles/:id  (edit a vehicle)
   app.put<{ Params: { id: string }; Body: Record<string, unknown> }>(
     '/fleet-vehicles/:id',

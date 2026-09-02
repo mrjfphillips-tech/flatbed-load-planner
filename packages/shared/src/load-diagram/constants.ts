@@ -21,6 +21,9 @@ export const UNIT_INDEPENDENT_COLUMNS = [
   'Delivery_Stop',
   'Temperature_Zone',
   'Floor_Only_Flag',
+  // Optional: if present, identifies the fleet vehicle this load is for, so the
+  // matching vehicle can be auto-assigned after upload.
+  'Vehicle_ID',
 ] as const;
 
 /** Metric dimension/weight columns. */

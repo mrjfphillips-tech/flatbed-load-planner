@@ -42,6 +42,7 @@ export function templateColumns(unitSystem: UnitSystem): string[] {
     'Delivery_Stop',
     'Temperature_Zone',
     'Floor_Only_Flag',
+    'Vehicle_ID',
   ];
 }
 
@@ -68,6 +69,7 @@ function instructionRows(unitSystem: UnitSystem): ColumnDoc[] {
     { column: 'Delivery_Stop', meaning: 'Delivery stop number (loaded in reverse order).', example: '3' },
     { column: 'Temperature_Zone', meaning: 'Optional temperature zone label.', example: 'ambient' },
     { column: 'Floor_Only_Flag', meaning: 'TRUE/yes/x if the item must sit on the floor.', example: 'no' },
+    { column: 'Vehicle_ID', meaning: 'Optional. If set to a fleet vehicle ID, that vehicle is auto-assigned on upload.', example: 'TRK-1' },
   ];
 }
 

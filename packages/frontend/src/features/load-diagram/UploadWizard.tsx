@@ -17,9 +17,16 @@ import {
   listTrailers,
   createPlan,
   createPlanForVehicle,
+  listFleets,
+  getFleet,
+  findFleetVehicle,
+  type FleetSummary,
 } from './api';
 
 const { formatLength, formatWeight } = loadDiagram;
+
+type FleetVehicle = loadDiagram.FleetVehicle & { id: string };
+type TargetMode = 'fleet' | 'trailer';
 
 interface UploadWizardProps {
   onGenerated?: (planId: string) => void;
@@ -53,7 +60,16 @@ export function UploadWizard({ onGenerated }: UploadWizardProps) {
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  // Load trailer profiles once.
+  // Fleet selection at the Upload step.
+  const [fleetList, setFleetList] = useState<FleetSummary[]>([]);
+  const [activeFleetId, setActiveFleetId] = useState<string>('');
+  const [fleetVehicles, setFleetVehicles] = useState<FleetVehicle[]>([]);
+  // Default the target to "fleet" if any fleets exist, else "trailer".
+  const [targetMode, setTargetMode] = useState<TargetMode>('trailer');
+  // Set when the load sheet's Vehicle_ID auto-matched a fleet vehicle.
+  const [autoAssignedLabel, setAutoAssignedLabel] = useState<string | null>(null);
+
+  // Load trailer profiles + fleets once.
   useEffect(() => {
     let cancelled = false;
     listTrailers()
@@ -63,18 +79,67 @@ export function UploadWizard({ onGenerated }: UploadWizardProps) {
       .catch((e: Error) => {
         if (!cancelled) setError(e.message);
       });
+    listFleets()
+      .then((fleets) => {
+        if (cancelled) return;
+        setFleetList(fleets);
+        // If a fleet vehicle is already chosen (came from the Fleet tab), keep
+        // fleet mode; otherwise prefer fleet mode when fleets exist.
+        if (selectedFleetVehicleId || fleets.length > 0) setTargetMode('fleet');
+      })
+      .catch(() => {
+        /* fleets are optional */
+      });
     return () => {
       cancelled = true;
     };
-  }, [setTrailerProfiles, setError]);
+  }, [setTrailerProfiles, setError, selectedFleetVehicleId]);
+
+  // Load the chosen fleet's vehicles.
+  useEffect(() => {
+    if (!activeFleetId) {
+      setFleetVehicles([]);
+      return;
+    }
+    let cancelled = false;
+    getFleet(activeFleetId)
+      .then((f) => {
+        if (!cancelled) setFleetVehicles(f.vehicles as FleetVehicle[]);
+      })
+      .catch(() => {
+        if (!cancelled) setFleetVehicles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFleetId]);
 
   async function handleFile(file: File) {
     setError(null);
     setFileName(file.name);
+    setAutoAssignedLabel(null);
     setIsUploading(true);
     try {
       const result = await uploadExcel(file);
       setUploadResult(result);
+
+      // If the sheet named a vehicle, try to auto-assign the matching fleet
+      // vehicle so the user doesn't have to pick one.
+      if (result.detectedVehicleId) {
+        try {
+          const match = await findFleetVehicle(result.detectedVehicleId);
+          if (match) {
+            setTargetMode('fleet');
+            setActiveFleetId(match.fleetId);
+            selectFleetVehicle(match.vehicle.id, `${match.vehicle.vehicleName} — ${match.fleetName}`);
+            setAutoAssignedLabel(
+              `${match.vehicle.vehicleName} (${match.vehicle.vehicleId}) — ${match.fleetName}`,
+            );
+          }
+        } catch {
+          /* auto-assign is best-effort; user can still pick manually */
+        }
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -222,43 +287,115 @@ export function UploadWizard({ onGenerated }: UploadWizardProps) {
       )}
 
       {/* Fleet vehicle selection (set from the Fleet tab) */}
-      {items.length > 0 && !hasErrors && selectedFleetVehicleId && (
-        <div className="rounded-md border border-blue-300 bg-blue-50 p-3 text-sm text-blue-800">
-          <div className="flex items-center justify-between">
-            <span>
-              Planning against fleet vehicle:{' '}
-              <span className="font-medium">{selectedFleetVehicleLabel}</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => selectFleetVehicle(null, null)}
-              className="text-blue-700 hover:underline"
-            >
-              Use a trailer profile instead
-            </button>
-          </div>
+      {/* Auto-assign notice */}
+      {items.length > 0 && !hasErrors && autoAssignedLabel && (
+        <div className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-800">
+          Auto-assigned from the load sheet: <span className="font-medium">{autoAssignedLabel}</span>.
+          You can change the selection below.
         </div>
       )}
 
-      {/* Trailer selection (when no fleet vehicle is chosen) */}
-      {items.length > 0 && !hasErrors && !selectedFleetVehicleId && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Trailer profile</label>
-          <select
-            value={selectedTrailerId ?? ''}
-            onChange={(e) => selectTrailer(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="" disabled>
-              Select a trailer…
-            </option>
-            {trailerProfiles.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} — {formatLength(t.internalLength, displayUnitSystem)} L ·{' '}
-                {formatWeight(t.maxPayloadWeight, displayUnitSystem)} max
-              </option>
-            ))}
-          </select>
+      {/* Target selection: a fleet vehicle OR a generic trailer profile */}
+      {items.length > 0 && !hasErrors && (
+        <div className="space-y-3">
+          <div>
+            <span className="block text-sm font-medium text-gray-700">Plan against</span>
+            <div className="mt-1 inline-flex rounded-md border border-gray-300 bg-white p-0.5">
+              {(['fleet', 'trailer'] as TargetMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setTargetMode(m);
+                    // Clear the other target when switching modes.
+                    if (m === 'trailer') selectFleetVehicle(null, null);
+                    else selectTrailer('');
+                  }}
+                  className={`px-3 py-1.5 text-sm font-medium rounded ${
+                    targetMode === m ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {m === 'fleet' ? 'Fleet vehicle' : 'Trailer profile'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Fleet vehicle mode */}
+          {targetMode === 'fleet' && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="text-gray-700">Fleet</span>
+                <select
+                  value={activeFleetId}
+                  onChange={(e) => {
+                    setActiveFleetId(e.target.value);
+                    selectFleetVehicle(null, null);
+                  }}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                >
+                  <option value="">Select a fleet…</option>
+                  {fleetList.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} ({f.vehicleCount})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm">
+                <span className="text-gray-700">Vehicle</span>
+                <select
+                  value={selectedFleetVehicleId ?? ''}
+                  disabled={!activeFleetId}
+                  onChange={(e) => {
+                    const v = fleetVehicles.find((x) => x.id === e.target.value);
+                    const fleetName = fleetList.find((f) => f.id === activeFleetId)?.name ?? '';
+                    selectFleetVehicle(v ? v.id : null, v ? `${v.vehicleName} — ${fleetName}` : null);
+                  }}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+                >
+                  <option value="">Select a vehicle…</option>
+                  {fleetVehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.vehicleName} ({v.vehicleId}) — {formatLength(v.platformLength, displayUnitSystem)} L ·{' '}
+                      {formatWeight(v.maxWeight, displayUnitSystem)} max
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {fleetList.length === 0 && (
+                <p className="text-xs text-gray-500 sm:col-span-2">
+                  No fleets yet — build one on the Fleet tab, or switch to a trailer profile.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Trailer profile mode */}
+          {targetMode === 'trailer' && (
+            <label className="block text-sm">
+              <span className="text-gray-700">Trailer profile</span>
+              <select
+                value={selectedTrailerId ?? ''}
+                onChange={(e) => selectTrailer(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">Select a trailer…</option>
+                {trailerProfiles.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} — {formatLength(t.internalLength, displayUnitSystem)} L ·{' '}
+                    {formatWeight(t.maxPayloadWeight, displayUnitSystem)} max
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {selectedFleetVehicleLabel && targetMode === 'fleet' && (
+            <p className="text-xs text-blue-700">Planning against: {selectedFleetVehicleLabel}</p>
+          )}
         </div>
       )}
 

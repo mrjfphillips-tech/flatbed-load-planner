@@ -242,6 +242,22 @@ export async function addFleetVehicle(
   return jsonOrThrow(res);
 }
 
+export interface FleetVehicleMatch {
+  vehicle: FleetVehicle & { id: string };
+  fleetId: string;
+  fleetName: string;
+}
+
+/**
+ * Finds a fleet vehicle across all fleets by reference (vehicle id, plate, or
+ * name). Returns null if no match is found.
+ */
+export async function findFleetVehicle(ref: string): Promise<FleetVehicleMatch | null> {
+  const res = await fetch(url(`/fleet-vehicles/find?ref=${encodeURIComponent(ref)}`));
+  if (res.status === 404) return null;
+  return jsonOrThrow<FleetVehicleMatch>(res);
+}
+
 /** Deletes a fleet vehicle. */
 export async function deleteFleetVehicle(vehicleId: string): Promise<void> {
   const res = await fetch(url(`/fleet-vehicles/${vehicleId}`), { method: 'DELETE' });
