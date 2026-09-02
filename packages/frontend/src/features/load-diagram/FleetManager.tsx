@@ -17,14 +17,28 @@ import {
   getFleet,
   createFleet,
   uploadFleet,
+  inspectFleet,
   addFleetVehicle,
   deleteFleetVehicle,
   fleetTemplateUrl,
   type FleetSummary,
+  type FleetInspectResult,
 } from './api';
 
 type UnitSystem = loadDiagram.UnitSystem;
 type FleetVehicle = loadDiagram.FleetVehicle;
+type FleetField = loadDiagram.FleetField;
+type FleetColumnMapping = loadDiagram.FleetColumnMapping;
+type FleetLengthUnit = loadDiagram.FleetLengthUnit;
+type FleetWeightUnit = loadDiagram.FleetWeightUnit;
+
+const {
+  FLEET_ALL_FIELDS,
+  FLEET_REQUIRED_FIELDS,
+  FLEET_FIELD_LABELS,
+  FLEET_LENGTH_UNITS,
+  FLEET_WEIGHT_UNITS,
+} = loadDiagram;
 
 const {
   formatLength,
@@ -125,13 +139,49 @@ function CreateFleetPanel({
   const [name, setName] = useState('Customer Fleet');
   const [file, setFile] = useState<File | null>(null);
 
-  async function handleUpload() {
-    if (!name.trim() || !file) return;
+  // Mapping phase state.
+  const [inspection, setInspection] = useState<FleetInspectResult | null>(null);
+  const [mapping, setMapping] = useState<FleetColumnMapping>({});
+  const [lengthUnit, setLengthUnit] = useState<FleetLengthUnit>('mm');
+  const [weightUnit, setWeightUnit] = useState<FleetWeightUnit>('kg');
+
+  async function handleInspect(selected: File) {
     setBusy(true);
     setError(null);
     try {
-      await uploadFleet(name.trim(), file);
+      const result = await inspectFleet(selected);
+      setInspection(result);
+      setMapping(result.suggestedMapping);
+    } catch (e) {
+      setError((e as Error).message);
+      setInspection(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onFileChange(f: File | null) {
+    setFile(f);
+    setInspection(null);
+    setMapping({});
+    if (f) void handleInspect(f);
+  }
+
+  async function handleUpload() {
+    if (!name.trim() || !file) return;
+    // All required fields must be mapped.
+    const missing = FLEET_REQUIRED_FIELDS.filter((f) => !mapping[f]);
+    if (missing.length > 0) {
+      setError(`Map these required fields first: ${missing.map((m) => FLEET_FIELD_LABELS[m]).join(', ')}`);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await uploadFleet(name.trim(), file, mapping, lengthUnit, weightUnit);
       setFile(null);
+      setInspection(null);
+      setMapping({});
       onCreated();
     } catch (e) {
       setError((e as Error).message);
@@ -154,6 +204,10 @@ function CreateFleetPanel({
     }
   }
 
+  function setField(field: FleetField, column: string) {
+    setMapping((m) => ({ ...m, [field]: column || undefined }));
+  }
+
   return (
     <div className="rounded-md border border-gray-200 bg-white p-4 space-y-3">
       <h3 className="text-sm font-semibold text-gray-900">Create a fleet</h3>
@@ -169,7 +223,7 @@ function CreateFleetPanel({
       </label>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-gray-500">Template:</span>
+        <span className="text-gray-500">Example template:</span>
         <a href={fleetTemplateUrl('metric')} className="text-blue-600 hover:underline" download>Metric</a>
         <a href={fleetTemplateUrl('imperial')} className="text-blue-600 hover:underline" download>Imperial</a>
       </div>
@@ -177,18 +231,83 @@ function CreateFleetPanel({
       <input
         type="file"
         accept=".xlsx,.xls"
-        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
         className="block w-full text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-blue-700"
       />
+
+      {/* Mapping phase — shown once a file has been inspected */}
+      {inspection && (
+        <div className="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <p className="text-xs text-gray-600">
+            Match each field to a column from your file. We pre-filled our best guesses —
+            adjust as needed and pick the units your file uses.
+          </p>
+
+          {/* Unit pickers */}
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <span className="text-gray-700">Length unit</span>
+              <select
+                value={lengthUnit}
+                onChange={(e) => setLengthUnit(e.target.value as FleetLengthUnit)}
+                className="rounded-md border border-gray-300 px-2 py-1"
+              >
+                {FLEET_LENGTH_UNITS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-gray-700">Weight unit</span>
+              <select
+                value={weightUnit}
+                onChange={(e) => setWeightUnit(e.target.value as FleetWeightUnit)}
+                className="rounded-md border border-gray-300 px-2 py-1"
+              >
+                {FLEET_WEIGHT_UNITS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {/* Field -> column mapping */}
+          <div className="space-y-1.5">
+            {FLEET_ALL_FIELDS.map((field) => {
+              const required = FLEET_REQUIRED_FIELDS.includes(field);
+              return (
+                <div key={field} className="flex items-center gap-2 text-sm">
+                  <span className="w-36 shrink-0 text-gray-700">
+                    {FLEET_FIELD_LABELS[field]}
+                    {required && <span className="text-red-500"> *</span>}
+                  </span>
+                  <select
+                    value={mapping[field] ?? ''}
+                    onChange={(e) => setField(field, e.target.value)}
+                    className={`flex-1 rounded-md border px-2 py-1 ${
+                      required && !mapping[field] ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">— not mapped —</option>
+                    {inspection.columns.map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button
           type="button"
-          disabled={busy || !name.trim() || !file}
+          disabled={busy || !name.trim() || !file || !inspection}
           onClick={() => void handleUpload()}
           className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-gray-300"
         >
-          Upload fleet
+          {busy ? 'Working…' : 'Import fleet'}
         </button>
         <button
           type="button"

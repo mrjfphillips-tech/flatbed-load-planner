@@ -26,7 +26,10 @@ import {
   generateTemplate,
   templateFilename,
 } from '../load-diagram/services/excelTemplate.js';
-import { parseFleetVehicleFile } from '../load-diagram/services/fleetVehicleParser.js';
+import {
+  parseFleetVehicleFile,
+  inspectFleetFile,
+} from '../load-diagram/services/fleetVehicleParser.js';
 import {
   generateFleetTemplate,
   fleetTemplateFilename,
@@ -420,29 +423,68 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // POST /api/load-diagram/fleets/upload  { name, fileBase64 }
-  // Parses an Excel file of vehicles and creates a named fleet from it.
-  app.post<{ Body: { name?: string; fileBase64?: string } }>(
-    '/fleets/upload',
-    async (request, reply) => {
-      const b = request.body ?? {};
-      if (!b.name || !b.name.trim()) {
-        return reply.status(400).send({ error: 'Fleet name is required.' });
-      }
-      if (!b.fileBase64) {
-        return reply.status(400).send({ error: 'fileBase64 (base64-encoded .xlsx) is required.' });
-      }
+  // POST /api/load-diagram/fleets/inspect  { fileBase64 }
+  // Returns the file's columns + sample rows + a suggested column mapping so the
+  // user can confirm/adjust the mapping before importing.
+  app.post<{ Body: { fileBase64?: string } }>('/fleets/inspect', async (request, reply) => {
+    const b = request.body ?? {};
+    if (!b.fileBase64) {
+      return reply.status(400).send({ error: 'fileBase64 (base64-encoded .xlsx) is required.' });
+    }
+    const result = await inspectFleetFile(Buffer.from(b.fileBase64, 'base64'));
+    if (result.error) return reply.status(400).send({ error: result.error });
+    return result;
+  });
 
-      const buffer = Buffer.from(b.fileBase64, 'base64');
-      const parsed = await parseFleetVehicleFile(buffer);
-      if (parsed.errors.length > 0 || parsed.vehicles.length === 0) {
-        return reply.status(400).send(parsed);
-      }
+  // POST /api/load-diagram/fleets/upload
+  // { name, fileBase64, mapping, lengthUnit, weightUnit }
+  // Parses an Excel file of vehicles using the confirmed column mapping + units
+  // and creates a named fleet from it.
+  app.post<{
+    Body: {
+      name?: string;
+      fileBase64?: string;
+      mapping?: loadDiagram.FleetColumnMapping;
+      lengthUnit?: string;
+      weightUnit?: string;
+    };
+  }>('/fleets/upload', async (request, reply) => {
+    const b = request.body ?? {};
+    if (!b.name || !b.name.trim()) {
+      return reply.status(400).send({ error: 'Fleet name is required.' });
+    }
+    if (!b.fileBase64) {
+      return reply.status(400).send({ error: 'fileBase64 (base64-encoded .xlsx) is required.' });
+    }
+    if (!b.mapping || typeof b.mapping !== 'object') {
+      return reply.status(400).send({ error: 'A column mapping is required.' });
+    }
 
-      const [fleet] = await db
-        .insert(fleets)
-        .values({ name: b.name.trim(), displayUnitSystem: parsed.detectedUnitSystem })
-        .returning();
+    const lengthUnit = (loadDiagram.FLEET_LENGTH_UNITS as string[]).includes(b.lengthUnit ?? '')
+      ? (b.lengthUnit as loadDiagram.FleetLengthUnit)
+      : 'mm';
+    const weightUnit = (loadDiagram.FLEET_WEIGHT_UNITS as string[]).includes(b.weightUnit ?? '')
+      ? (b.weightUnit as loadDiagram.FleetWeightUnit)
+      : 'kg';
+
+    const buffer = Buffer.from(b.fileBase64, 'base64');
+    const parsed = await parseFleetVehicleFile(buffer, {
+      mapping: b.mapping,
+      lengthUnit,
+      weightUnit,
+    });
+    if (parsed.errors.length > 0 || parsed.vehicles.length === 0) {
+      return reply.status(400).send(parsed);
+    }
+
+    // Display unit follows the chosen input units (imperial in/ft or lb -> imperial).
+    const displayUnitSystem: UnitSystem =
+      lengthUnit === 'in' || lengthUnit === 'ft' || weightUnit === 'lb' ? 'imperial' : 'metric';
+
+    const [fleet] = await db
+      .insert(fleets)
+      .values({ name: b.name.trim(), displayUnitSystem })
+      .returning();
 
       await db.insert(fleetVehicles).values(
         parsed.vehicles.map((v) => ({
@@ -462,13 +504,12 @@ export async function loadDiagramRoutes(app: FastifyInstance): Promise<void> {
         })),
       );
 
-      const vehicles = await db
-        .select()
-        .from(fleetVehicles)
-        .where(eq(fleetVehicles.fleetId, fleet.id));
-      return reply.status(201).send({ ...fleet, vehicles, detectedUnitSystem: parsed.detectedUnitSystem });
-    },
-  );
+    const vehicles = await db
+      .select()
+      .from(fleetVehicles)
+      .where(eq(fleetVehicles.fleetId, fleet.id));
+    return reply.status(201).send({ ...fleet, vehicles });
+  });
 
   // POST /api/load-diagram/fleets/:id/vehicles  (manually add one vehicle)
   app.post<{ Params: { id: string }; Body: Record<string, unknown> }>(

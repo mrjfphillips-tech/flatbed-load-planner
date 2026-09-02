@@ -165,18 +165,68 @@ export async function createFleet(
   return jsonOrThrow(res);
 }
 
-/** Uploads an Excel file of vehicles as a new named fleet. */
+type FleetColumnMapping = loadDiagram.FleetColumnMapping;
+type FleetLengthUnit = loadDiagram.FleetLengthUnit;
+type FleetWeightUnit = loadDiagram.FleetWeightUnit;
+
+export interface FleetInspectResult {
+  sheetName: string;
+  columns: string[];
+  sampleRows: Record<string, string>[];
+  suggestedMapping: FleetColumnMapping;
+}
+
+/** Inspects an uploaded Excel file: returns columns, sample rows, and a suggested mapping. */
+export async function inspectFleet(file: File): Promise<FleetInspectResult> {
+  const fileBase64 = await fileToBase64(file);
+  const res = await fetch(url('/fleets/inspect'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileBase64 }),
+  });
+  return jsonOrThrow<FleetInspectResult>(res);
+}
+
+/**
+ * Uploads an Excel file of vehicles as a new named fleet, using a confirmed
+ * column mapping and the input units. On a validation failure the thrown error
+ * message summarizes the row/column problems.
+ */
 export async function uploadFleet(
   name: string,
   file: File,
-): Promise<Fleet & { id: string; detectedUnitSystem: UnitSystem }> {
+  mapping: FleetColumnMapping,
+  lengthUnit: FleetLengthUnit,
+  weightUnit: FleetWeightUnit,
+): Promise<Fleet & { id: string }> {
   const fileBase64 = await fileToBase64(file);
   const res = await fetch(url('/fleets/upload'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, fileBase64 }),
+    body: JSON.stringify({ name, fileBase64, mapping, lengthUnit, weightUnit }),
   });
-  return jsonOrThrow(res);
+  if (!res.ok) {
+    // The 400 body may carry detailed validation errors; surface a summary.
+    try {
+      const body = (await res.json()) as {
+        error?: string;
+        errors?: { row: number; column: string; message: string }[];
+      };
+      if (body.errors && body.errors.length > 0) {
+        const preview = body.errors
+          .slice(0, 5)
+          .map((e) => `${e.row > 0 ? `Row ${e.row}` : 'File'}${e.column ? ` · ${e.column}` : ''}: ${e.message}`)
+          .join('; ');
+        const more = body.errors.length > 5 ? ` (+${body.errors.length - 5} more)` : '';
+        throw new Error(`${body.errors.length} problem(s): ${preview}${more}`);
+      }
+      throw new Error(body.error ?? `Upload failed (${res.status})`);
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      throw new Error(`Upload failed (${res.status})`);
+    }
+  }
+  return res.json() as Promise<Fleet & { id: string }>;
 }
 
 /** Adds a single vehicle to a fleet (manual builder). Values are canonical mm/kg. */

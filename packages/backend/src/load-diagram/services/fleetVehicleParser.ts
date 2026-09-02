@@ -1,27 +1,26 @@
-// ─── Fleet Vehicle Excel Parser ──────────────────────────────────────────────
+// ─── Fleet Vehicle Excel Parser (mapping-based) ──────────────────────────────
 // Feature: load-diagram-generator (Customer Fleet)
 //
-// Parses an uploaded Excel workbook of fleet vehicles into canonical FleetVehicle
-// records. Detects the unit system (metric or imperial), rejects mixed-unit
-// files, and converts weights/dimensions to canonical mm/kg via the shared units
-// module. Cost fields are optional, currency-agnostic numbers. Mirrors the
-// conventions of excelParser.ts (ExcelJS, header map, ValidationError list,
-// 10 MB cap).
+// Real vehicle spreadsheets use arbitrary column names and unit conventions, so
+// parsing is driven by an explicit column mapping (field -> source column) plus
+// chosen input units (length + weight), rather than fixed header names. All
+// dimensions/weights are converted to canonical mm/kg. Mirrors excelParser.ts
+// conventions (ExcelJS, ValidationError list, 10 MB cap, base64 upload route).
 
 import ExcelJS from 'exceljs';
 import { loadDiagram } from '@ptv-discovery-coach/shared';
 
-type UnitSystem = loadDiagram.UnitSystem;
 type FleetVehicle = loadDiagram.FleetVehicle;
 type ValidationError = loadDiagram.ValidationError;
-type FleetVehicleParseResult = loadDiagram.FleetVehicleParseResult;
+type FleetColumnMapping = loadDiagram.FleetColumnMapping;
+type FleetLengthUnit = loadDiagram.FleetLengthUnit;
+type FleetWeightUnit = loadDiagram.FleetWeightUnit;
 
 const {
-  FLEET_METRIC_COLUMNS,
-  FLEET_IMPERIAL_COLUMNS,
-  FLEET_DIMENSION_COLUMN_MAP,
-  lengthToCanonical,
-  weightToCanonical,
+  fleetLengthToCanonical,
+  fleetWeightToCanonical,
+  autoMapFleetColumns,
+  FLEET_REQUIRED_FIELDS,
 } = loadDiagram;
 
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -33,43 +32,22 @@ function headerText(value: ExcelJS.CellValue): string {
   return value == null ? '' : String(value).trim();
 }
 
-function readHeaders(sheet: ExcelJS.Worksheet): Map<string, number> {
-  const headers = new Map<string, number>();
+/** Reads the header row into ordered names and a name -> column-index map. */
+function readHeaders(sheet: ExcelJS.Worksheet): { names: string[]; index: Map<string, number> } {
+  const names: string[] = [];
+  const index = new Map<string, number>();
   sheet.getRow(1).eachCell((cell, colNumber) => {
     const name = headerText(cell.value);
-    if (name) headers.set(name, colNumber);
+    if (name) {
+      names.push(name);
+      index.set(name, colNumber);
+    }
   });
-  return headers;
+  return { names, index };
 }
 
-// ─── Unit detection ──────────────────────────────────────────────────────────
-
-interface UnitDetection {
-  unitSystem?: UnitSystem;
-  error?: string;
-}
-
-/**
- * Determines the file's unit system from which dimension columns are present.
- * Errors on mixed units or when no dimension columns are found.
- */
-export function detectFleetUnitSystem(headers: Map<string, number>): UnitDetection {
-  const hasMetric = FLEET_METRIC_COLUMNS.some((c) => headers.has(c));
-  const hasImperial = FLEET_IMPERIAL_COLUMNS.some((c) => headers.has(c));
-
-  if (hasMetric && hasImperial) {
-    return {
-      error:
-        'File mixes metric and imperial columns. Use one unit system (either *_mm/*_kg or *_in/*_lb).',
-    };
-  }
-  if (!hasMetric && !hasImperial) {
-    return {
-      error:
-        'No dimension columns found. Expected metric (Max_Weight_kg, Platform_Length_mm, ...) or imperial (Max_Weight_lb, Platform_Length_in, ...) columns.',
-    };
-  }
-  return { unitSystem: hasMetric ? 'metric' : 'imperial' };
+function pickSheet(workbook: ExcelJS.Workbook): ExcelJS.Worksheet | undefined {
+  return workbook.getWorksheet(DATA_SHEET_NAME) ?? workbook.worksheets[0];
 }
 
 // ─── Cell coercion ───────────────────────────────────────────────────────────
@@ -80,7 +58,10 @@ function toNumber(value: ExcelJS.CellValue): number | null {
   if (typeof value === 'object' && 'result' in value && typeof value.result === 'number') {
     return value.result;
   }
-  const n = Number(String(value).trim().replace(/,/g, ''));
+  const raw = String(value).trim();
+  // Treat placeholder dashes / n-a as "no value".
+  if (raw === '' || raw === '-' || raw === '—' || /^n\/?a$/i.test(raw)) return null;
+  const n = Number(raw.replace(/,/g, ''));
   return Number.isFinite(n) ? n : null;
 }
 
@@ -90,111 +71,105 @@ function toStringValue(value: ExcelJS.CellValue): string | undefined {
   return s === '' ? undefined : s;
 }
 
-function getCell(
-  row: ExcelJS.Row,
-  headers: Map<string, number>,
-  column: string,
-): ExcelJS.CellValue {
-  const idx = headers.get(column);
-  return idx ? row.getCell(idx).value : null;
+// ─── Inspection (headers + sample rows for the mapping UI) ────────────────────
+
+export interface FleetInspectResult {
+  sheetName: string;
+  columns: string[];
+  /** A few sample data rows keyed by column name (for preview). */
+  sampleRows: Record<string, string>[];
+  /** Suggested mapping from the auto-mapper. */
+  suggestedMapping: FleetColumnMapping;
+  error?: string;
 }
 
-// ─── Row parsing ─────────────────────────────────────────────────────────────
-
-export function parseVehicleRow(
-  row: ExcelJS.Row,
-  rowIndex: number,
-  headers: Map<string, number>,
-  unitSystem: UnitSystem,
-  errors: ValidationError[],
-): FleetVehicle | null {
-  const dim = FLEET_DIMENSION_COLUMN_MAP[unitSystem];
-
-  const vehicleId = toStringValue(getCell(row, headers, 'Vehicle_ID'));
-  const vehicleName = toStringValue(getCell(row, headers, 'Vehicle_Name'));
-
-  let valid = true;
-  if (!vehicleId) {
-    errors.push({ row: rowIndex, column: 'Vehicle_ID', message: 'Missing required Vehicle_ID.' });
-    valid = false;
-  }
-  if (!vehicleName) {
-    errors.push({ row: rowIndex, column: 'Vehicle_Name', message: 'Missing required Vehicle_Name.' });
-    valid = false;
-  }
-
-  const requirePositive = (raw: ExcelJS.CellValue, column: string): number => {
-    const value = toNumber(raw);
-    if (value == null || value <= 0) {
-      errors.push({
-        row: rowIndex,
-        column,
-        message: `${column} must be a positive number.`,
-        value: value == null ? undefined : String(value),
-      });
-      valid = false;
-      return 0;
-    }
-    return value;
+/** Reads a workbook's headers and a few sample rows without validating. */
+export async function inspectFleetFile(buffer: Buffer): Promise<FleetInspectResult> {
+  const empty: FleetInspectResult = {
+    sheetName: '',
+    columns: [],
+    sampleRows: [],
+    suggestedMapping: {},
   };
 
-  const maxWeight = requirePositive(getCell(row, headers, dim.maxWeight), dim.maxWeight);
-  const platformLength = requirePositive(getCell(row, headers, dim.platformLength), dim.platformLength);
-  const platformWidth = requirePositive(getCell(row, headers, dim.platformWidth), dim.platformWidth);
+  if (buffer.byteLength > MAX_FILE_SIZE_BYTES) {
+    return { ...empty, error: 'File exceeds the 10 MB size limit.' };
+  }
 
-  const rawHeight = toNumber(getCell(row, headers, dim.platformHeight));
+  const workbook = new ExcelJS.Workbook();
+  try {
+    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+  } catch {
+    return { ...empty, error: 'Unable to read the file as a valid .xlsx workbook.' };
+  }
 
-  // Optional cost fields — must be non-negative if present.
-  const optionalCost = (column: string): number | undefined => {
-    const raw = toNumber(getCell(row, headers, column));
-    if (raw == null) return undefined;
-    if (raw < 0) {
-      errors.push({ row: rowIndex, column, message: `${column} cannot be negative.`, value: String(raw) });
-      valid = false;
-      return undefined;
+  const sheet = pickSheet(workbook);
+  if (!sheet) return { ...empty, error: 'Workbook contains no worksheets.' };
+
+  const { names, index } = readHeaders(sheet);
+  const sampleRows: Record<string, string>[] = [];
+  for (let r = 2; r <= Math.min(4, sheet.rowCount); r++) {
+    const row = sheet.getRow(r);
+    if (!row.hasValues) continue;
+    const rec: Record<string, string> = {};
+    for (const name of names) {
+      const idx = index.get(name)!;
+      const v = row.getCell(idx).value;
+      rec[name] = v == null ? '' : String(v);
     }
-    return raw;
-  };
-
-  const costPerStop = optionalCost('Cost_Per_Stop');
-  const fixedCost = optionalCost('Fixed_Cost');
-  const costPerHour = optionalCost('Cost_Per_Hour');
-  const costPerKm = optionalCost('Cost_Per_Km');
-
-  if (!valid) return null;
+    sampleRows.push(rec);
+  }
 
   return {
-    id: `${vehicleId}-r${rowIndex}`,
-    vehicleId: vehicleId!,
-    vehicleName: vehicleName!,
-    vehicleAccount: toStringValue(getCell(row, headers, 'Vehicle_Account')),
-    licensePlate: toStringValue(getCell(row, headers, 'License_Plate')),
-    maxWeight: weightToCanonical(maxWeight, unitSystem),
-    platformLength: lengthToCanonical(platformLength, unitSystem),
-    platformWidth: lengthToCanonical(platformWidth, unitSystem),
-    platformHeight:
-      rawHeight != null && rawHeight > 0 ? lengthToCanonical(rawHeight, unitSystem) : undefined,
-    costPerStop,
-    fixedCost,
-    costPerHour,
-    costPerKm,
+    sheetName: sheet.name,
+    columns: names,
+    sampleRows,
+    suggestedMapping: autoMapFleetColumns(names),
   };
 }
 
-// ─── Public entry point ──────────────────────────────────────────────────────
+// ─── Parse with an explicit mapping + units ──────────────────────────────────
 
-export async function parseFleetVehicleFile(buffer: Buffer): Promise<FleetVehicleParseResult> {
+export interface FleetParseOptions {
+  mapping: FleetColumnMapping;
+  lengthUnit: FleetLengthUnit;
+  weightUnit: FleetWeightUnit;
+}
+
+export interface FleetParseResult {
+  vehicles: FleetVehicle[];
+  errors: ValidationError[];
+  summary: { totalVehicles: number; totalMaxWeight: number };
+}
+
+/**
+ * Parses vehicles using the supplied field->column mapping and input units.
+ * Converts lengths/weights to canonical mm/kg. Never throws on data problems.
+ */
+export async function parseFleetVehicleFile(
+  buffer: Buffer,
+  options: FleetParseOptions,
+): Promise<FleetParseResult> {
   const errors: ValidationError[] = [];
-  const empty = (unitSystem: UnitSystem = 'metric'): FleetVehicleParseResult => ({
+  const empty: FleetParseResult = {
     vehicles: [],
-    detectedUnitSystem: unitSystem,
     errors,
     summary: { totalVehicles: 0, totalMaxWeight: 0 },
-  });
+  };
+
+  const { mapping, lengthUnit, weightUnit } = options;
+
+  // Validate that required fields are mapped.
+  for (const field of FLEET_REQUIRED_FIELDS) {
+    if (!mapping[field]) {
+      errors.push({ row: 1, column: field, message: `Required field "${field}" is not mapped to a column.` });
+    }
+  }
+  if (errors.length > 0) return empty;
 
   if (buffer.byteLength > MAX_FILE_SIZE_BYTES) {
     errors.push({ row: 0, column: '', message: 'File exceeds the 10 MB size limit.' });
-    return empty();
+    return empty;
   }
 
   const workbook = new ExcelJS.Workbook();
@@ -202,45 +177,110 @@ export async function parseFleetVehicleFile(buffer: Buffer): Promise<FleetVehicl
     await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
   } catch {
     errors.push({ row: 0, column: '', message: 'Unable to read the file as a valid .xlsx workbook.' });
-    return empty();
+    return empty;
   }
 
-  const sheet = workbook.getWorksheet(DATA_SHEET_NAME) ?? workbook.worksheets[0];
+  const sheet = pickSheet(workbook);
   if (!sheet) {
     errors.push({ row: 0, column: '', message: 'Workbook contains no worksheets.' });
-    return empty();
+    return empty;
   }
 
-  const headers = readHeaders(sheet);
+  const { index } = readHeaders(sheet);
 
-  for (const col of ['Vehicle_ID', 'Vehicle_Name']) {
-    if (!headers.has(col)) {
-      errors.push({ row: 1, column: col, message: `Missing required column "${col}".` });
+  // Confirm mapped columns actually exist in the file.
+  for (const [field, col] of Object.entries(mapping)) {
+    if (col && !index.has(col)) {
+      errors.push({ row: 1, column: col, message: `Mapped column "${col}" for "${field}" not found in the file.` });
     }
   }
+  if (errors.length > 0) return empty;
 
-  const detection = detectFleetUnitSystem(headers);
-  if (detection.error || !detection.unitSystem) {
-    errors.push({ row: 1, column: '', message: detection.error ?? 'Could not detect unit system.' });
-    return empty();
-  }
-  const unitSystem = detection.unitSystem;
-
-  if (errors.length > 0) return empty(unitSystem);
+  const cell = (row: ExcelJS.Row, field: loadDiagram.FleetField): ExcelJS.CellValue => {
+    const col = mapping[field];
+    if (!col) return null;
+    const idx = index.get(col);
+    return idx ? row.getCell(idx).value : null;
+  };
 
   const vehicles: FleetVehicle[] = [];
   for (let r = 2; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
     if (!row.hasValues) continue;
-    const vehicle = parseVehicleRow(row, r, headers, unitSystem, errors);
-    if (vehicle) vehicles.push(vehicle);
+
+    let valid = true;
+    const vehicleId = toStringValue(cell(row, 'vehicleId'));
+    const vehicleName = toStringValue(cell(row, 'vehicleName'));
+    if (!vehicleId) {
+      errors.push({ row: r, column: mapping.vehicleId ?? 'vehicleId', message: 'Missing Vehicle ID.' });
+      valid = false;
+    }
+    if (!vehicleName) {
+      errors.push({ row: r, column: mapping.vehicleName ?? 'vehicleName', message: 'Missing Vehicle name.' });
+      valid = false;
+    }
+
+    const requirePositive = (field: loadDiagram.FleetField): number => {
+      const value = toNumber(cell(row, field));
+      if (value == null || value <= 0) {
+        errors.push({
+          row: r,
+          column: mapping[field] ?? field,
+          message: `${field} must be a positive number.`,
+          value: value == null ? undefined : String(value),
+        });
+        valid = false;
+        return 0;
+      }
+      return value;
+    };
+
+    const maxWeight = requirePositive('maxWeight');
+    const platformLength = requirePositive('platformLength');
+    const platformWidth = requirePositive('platformWidth');
+    const rawHeight = toNumber(cell(row, 'platformHeight'));
+
+    const optionalCost = (field: loadDiagram.FleetField): number | undefined => {
+      const v = toNumber(cell(row, field));
+      if (v == null) return undefined;
+      if (v < 0) {
+        errors.push({ row: r, column: mapping[field] ?? field, message: `${field} cannot be negative.`, value: String(v) });
+        valid = false;
+        return undefined;
+      }
+      return v;
+    };
+
+    const costPerStop = optionalCost('costPerStop');
+    const fixedCost = optionalCost('fixedCost');
+    const costPerHour = optionalCost('costPerHour');
+    const costPerKm = optionalCost('costPerKm');
+
+    if (!valid) continue;
+
+    vehicles.push({
+      id: `${vehicleId}-r${r}`,
+      vehicleId: vehicleId!,
+      vehicleName: vehicleName!,
+      vehicleAccount: toStringValue(cell(row, 'vehicleAccount')),
+      licensePlate: toStringValue(cell(row, 'licensePlate')),
+      maxWeight: fleetWeightToCanonical(maxWeight, weightUnit),
+      platformLength: fleetLengthToCanonical(platformLength, lengthUnit),
+      platformWidth: fleetLengthToCanonical(platformWidth, lengthUnit),
+      platformHeight:
+        rawHeight != null && rawHeight > 0
+          ? fleetLengthToCanonical(rawHeight, lengthUnit)
+          : undefined,
+      costPerStop,
+      fixedCost,
+      costPerHour,
+      costPerKm,
+    });
   }
 
   const totalMaxWeight = vehicles.reduce((s, v) => s + v.maxWeight, 0);
-
   return {
     vehicles,
-    detectedUnitSystem: unitSystem,
     errors,
     summary: { totalVehicles: vehicles.length, totalMaxWeight },
   };

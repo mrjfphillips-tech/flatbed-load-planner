@@ -63,3 +63,21 @@ export {
   validateSinglePlacement,
 } from './constraint-validator';
 export type { StackabilityMatrix } from './constraint-validator';
+
+// ─── Fleet Column Mapping & Flexible Units ──────────────────────────────────────
+export {
+  fleetLengthToCanonical,
+  fleetWeightToCanonical,
+  FLEET_LENGTH_UNITS,
+  FLEET_WEIGHT_UNITS,
+  FLEET_REQUIRED_FIELDS,
+  FLEET_ALL_FIELDS,
+  FLEET_FIELD_LABELS,
+  autoMapFleetColumns,
+} from './fleet-mapping';
+export type {
+  FleetLengthUnit,
+  FleetWeightUnit,
+  FleetField,
+  FleetColumnMapping,
+} from './fleet-mapping';
