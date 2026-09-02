@@ -26,6 +26,10 @@ const {
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const DATA_SHEET_NAME = 'Vehicles';
 
+/** Plausibility floors that catch a units mistake (e.g. meters entered as mm). */
+const MIN_PLAUSIBLE_LENGTH_MM = 500; // 0.5 m — smaller than any real platform dimension
+const MIN_PLAUSIBLE_WEIGHT_KG = 100; // 100 kg — smaller than any real payload capacity
+
 // ─── Header helpers ──────────────────────────────────────────────────────────
 
 function headerText(value: ExcelJS.CellValue): string {
@@ -258,15 +262,39 @@ export async function parseFleetVehicleFile(
 
     if (!valid) continue;
 
+    const canonicalLength = fleetLengthToCanonical(platformLength, lengthUnit);
+    const canonicalWidth = fleetLengthToCanonical(platformWidth, lengthUnit);
+    const canonicalMaxWeight = fleetWeightToCanonical(maxWeight, weightUnit);
+
+    // Plausibility check: catch a units mistake (e.g. meters entered as mm)
+    // before it produces a microscopic, unusable "trailer". A real platform is
+    // at least ~1 m long/wide and carries at least ~100 kg.
+    if (canonicalLength < MIN_PLAUSIBLE_LENGTH_MM || canonicalWidth < MIN_PLAUSIBLE_LENGTH_MM) {
+      errors.push({
+        row: r,
+        column: mapping.platformLength ?? 'platformLength',
+        message: `Platform dimensions look too small (${canonicalLength.toFixed(0)} x ${canonicalWidth.toFixed(0)} mm). Check the Length unit — did you mean meters (m) instead of ${lengthUnit}?`,
+      });
+      continue;
+    }
+    if (canonicalMaxWeight < MIN_PLAUSIBLE_WEIGHT_KG) {
+      errors.push({
+        row: r,
+        column: mapping.maxWeight ?? 'maxWeight',
+        message: `Max weight looks too small (${canonicalMaxWeight.toFixed(0)} kg). Check the Weight unit — did you mean tonnes (t) instead of ${weightUnit}?`,
+      });
+      continue;
+    }
+
     vehicles.push({
       id: `${vehicleId}-r${r}`,
       vehicleId: vehicleId!,
       vehicleName: vehicleName!,
       vehicleAccount: toStringValue(cell(row, 'vehicleAccount')),
       licensePlate: toStringValue(cell(row, 'licensePlate')),
-      maxWeight: fleetWeightToCanonical(maxWeight, weightUnit),
-      platformLength: fleetLengthToCanonical(platformLength, lengthUnit),
-      platformWidth: fleetLengthToCanonical(platformWidth, lengthUnit),
+      maxWeight: canonicalMaxWeight,
+      platformLength: canonicalLength,
+      platformWidth: canonicalWidth,
       platformHeight:
         rawHeight != null && rawHeight > 0
           ? fleetLengthToCanonical(rawHeight, lengthUnit)
