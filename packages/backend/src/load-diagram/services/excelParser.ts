@@ -28,6 +28,37 @@ const {
 /** Maximum accepted file size in bytes (10 MB). */
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
+/**
+ * Finds the (optional) column that identifies a fleet vehicle, tolerant of
+ * naming variations like "Vehicle_ID", "Vehicle Assigned", "Assigned Vehicle",
+ * "Vehicle", "Truck", "Placa/Plate". Returns the column index or undefined.
+ */
+export function findVehicleColumn(headers: Map<string, number>): number | undefined {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const entries = [...headers.entries()];
+  // Priority-ordered phrases; first match wins.
+  const phrases = [
+    'vehicle id',
+    'vehicle assigned',
+    'assigned vehicle',
+    'vehicle',
+    'unit id',
+    'truck id',
+    'truck',
+    'license plate',
+    'plate',
+    'placa',
+    'matricula',
+  ];
+  for (const phrase of phrases) {
+    const hit = entries.find(([name]) => norm(name) === phrase);
+    if (hit) return hit[1];
+  }
+  // Fallback: any header containing "vehicle".
+  const contains = entries.find(([name]) => norm(name).includes('vehicle'));
+  return contains?.[1];
+}
+
 /** The worksheet name the parser reads (falls back to the first sheet). */
 const DATA_SHEET_NAME = 'Load Items';
 
@@ -257,7 +288,7 @@ export async function parseExcelFile(buffer: Buffer): Promise<ExcelParseResult> 
 
   const items: LoadItem[] = [];
   const vehicleIds = new Set<string>();
-  const vehicleIdCol = headers.get('Vehicle_ID');
+  const vehicleIdCol = findVehicleColumn(headers);
   // Row 1 is the header; data starts at row 2.
   for (let r = 2; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
