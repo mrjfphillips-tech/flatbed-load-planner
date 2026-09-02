@@ -41,12 +41,18 @@ export function ExportPanel() {
     setUnitSystem(displayUnitSystem);
   }, [displayUnitSystem]);
 
-  // Load placed items for the checklist preview.
+  const [blockingErrors, setBlockingErrors] = useState<string[]>([]);
+
+  // Load placed items for the checklist preview + rule errors that block export.
   useEffect(() => {
     if (!planId) return;
     let cancelled = false;
     getPlan(planId)
-      .then((p) => !cancelled && setItems(p.items))
+      .then((p) => {
+        if (cancelled) return;
+        setItems(p.items);
+        setBlockingErrors((p.ruleValidation?.errors ?? []).map((e) => e.rationale));
+      })
       .catch(() => {
         /* preview is best-effort */
       });
@@ -156,11 +162,26 @@ export function ExportPanel() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
+          {blockingErrors.length > 0 && (
+            <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+              <p className="font-medium">
+                Export is blocked by {blockingErrors.length} rule violation
+                {blockingErrors.length === 1 ? '' : 's'}. Fix these in the Diagram editor first:
+              </p>
+              <ul className="mt-1 max-h-32 list-disc overflow-auto pl-5">
+                {blockingErrors.map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || blockingErrors.length > 0}
             onClick={() => void handleExport()}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-gray-300"
+            title={blockingErrors.length > 0 ? 'Resolve rule violations before exporting' : undefined}
           >
             {busy ? 'Preparing…' : 'Download PDF'}
           </button>

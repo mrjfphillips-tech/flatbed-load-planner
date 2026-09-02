@@ -122,6 +122,8 @@ export interface LoadPlan {
   overflowItems?: LoadItem[];
   /** Advisory warnings about unusual placements. */
   warnings?: PackingWarning[];
+  /** Full rules-engine result (errors + warnings) for the UI to surface. */
+  ruleValidation?: import('./rules').ValidationResult;
 }
 
 /** The kind of advisory packing warning (review-worthy, not a hard failure). */
@@ -149,6 +151,11 @@ export interface PackingResult {
   axleWeights: number[];
   /** Advisory warnings about unusual placements (never block the plan). */
   warnings: PackingWarning[];
+  /**
+   * Items that could not be placed, reported as infeasible (never hidden or
+   * resized). Mirrors overflowItems with an explicit feasibility flag/reason.
+   */
+  unplaced?: { item: LoadItem; feasible: false; reason: string }[];
   computeTimeMs: number;
 }
 

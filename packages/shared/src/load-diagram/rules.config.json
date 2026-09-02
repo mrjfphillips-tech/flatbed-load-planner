@@ -1,0 +1,48 @@
+{
+  "unloadMode": "side",
+  "tolerances": {
+    "overlapEpsilonMm": 1.0,
+    "supportGapEpsilonMm": 6.0,
+    "positionEpsilonMm": 0.5
+  },
+  "support": {
+    "minSupportedFraction": 0.8
+  },
+  "vehicle": {
+    "rearOverhangMm": 0
+  },
+  "shapeClassification": {
+    "flatSmallestToLargestRatio": 0.25,
+    "longLargestToMidRatio": 3.0
+  },
+  "stackCompatibility": {
+    "rebar_bundle": ["rebar_bundle", "angle_bundle"],
+    "angle_bundle": ["angle_bundle", "sheet_pack", "sheet_pack_thin"],
+    "sheet_pack": ["sheet_pack", "sheet_pack_thin"],
+    "sheet_pack_thin": ["sheet_pack", "sheet_pack_thin"]
+  },
+  "planLayerOrder": {
+    "P0_L1": 1,
+    "P0_L2": 2,
+    "P0_L3": 3,
+    "P0_L4": 4,
+    "P0_L5": 5
+  },
+  "loadSide": {
+    "centreToleranceMm": 305
+  },
+  "cog": {
+    "minLongitudinalFraction": 0.3,
+    "maxLongitudinalFraction": 0.62,
+    "maxLateralImbalanceFraction": 0.1,
+    "maxHeightFractionWarn": 0.55
+  },
+  "sanity": {
+    "minItemDimensionMm": 12.7,
+    "minDeckLengthMm": 2540
+  },
+  "severity": {
+    "LOAD_SIDE": "warning",
+    "COG_HEIGHT": "warning"
+  }
+}

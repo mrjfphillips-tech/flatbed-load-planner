@@ -31,6 +31,36 @@ export { DEFAULT_OPEN_PLATFORM_HEIGHT_MM, OPEN_TRAILER_TYPES } from './types';
 export { suggestedCargoHeight } from './suggested-height';
 export type { SuggestedHeightOptions, SuggestedHeightResult } from './suggested-height';
 
+// ─── Rules Configuration ────────────────────────────────────────────────────────
+export {
+  DEFAULT_RULES_CONFIG,
+  resolveRulesConfig,
+  classCanCarry,
+} from './rules-config';
+export type {
+  RulesConfig,
+  UnloadMode,
+  RuleSeverity,
+  StackCompatibilityMatrix,
+} from './rules-config';
+
+// ─── Rules Engine ────────────────────────────────────────────────────────────
+export {
+  validate,
+  assertValid,
+  LoadRulesError,
+  ruleCanonicalUnits,
+  rulePlacementCompleteness,
+  ruleVehicleEnvelope,
+  ruleNoOverlap,
+  ruleSupportContinuity,
+  ruleFloorOnly,
+  ruleMaxStackWeight,
+  ruleStackClassCompatibility,
+  ruleAxleAndCog,
+} from './rules';
+export type { RuleViolation, RuleCode, RulePlan, ValidationResult } from './rules';
+
 // ─── Unit Conversion & Formatting ────────────────────────────────────────────
 export {
   MM_PER_INCH,
@@ -61,7 +91,7 @@ export {
 export type { StackabilityClass } from './constants';
 
 // ─── Packing Engine ────────────────────────────────────────────────────────────
-export { computeLoadPlan, calculateAxleWeights, generateWarnings } from './packing-engine';
+export { computeLoadPlan, computeAndValidate, calculateAxleWeights, generateWarnings } from './packing-engine';
 export type { PackingConstraints } from './packing-engine';
 
 // ─── Constraint Validator ──────────────────────────────────────────────────────

@@ -185,19 +185,43 @@ export function DiagramViewer() {
   if (!plan || !plan.trailerProfile) return null;
 
   const stops = distinctStops(plan.items);
-  const warnings = plan.warnings ?? [];
+  const packingWarnings = plan.warnings ?? [];
+  const ruleErrors = plan.ruleValidation?.errors ?? [];
+  const ruleWarnings = plan.ruleValidation?.warnings ?? [];
+  // Combine engine advisory warnings with rule-engine warnings for display.
+  const allWarnings = [
+    ...packingWarnings.map((w) => w.message),
+    ...ruleWarnings.map((w) => w.rationale),
+  ];
 
   return (
     <div className="space-y-4">
-      {/* Advisory warnings — review-worthy, not hard errors. */}
-      {warnings.length > 0 && (
+      {/* Rule errors — block finalize/export, but the load still renders so the
+          planner can see and fix the problem. */}
+      {ruleErrors.length > 0 && (
+        <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          <p className="font-medium">
+            {ruleErrors.length} rule violation{ruleErrors.length === 1 ? '' : 's'} — resolve before finalizing:
+          </p>
+          <ul className="mt-1 max-h-40 list-disc overflow-auto pl-5">
+            {ruleErrors.map((e, i) => (
+              <li key={i}>
+                <span className="font-medium">{e.rule}:</span> {e.rationale}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Advisory warnings — review-worthy, never block. */}
+      {allWarnings.length > 0 && (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
           <p className="font-medium">
-            {warnings.length} placement warning{warnings.length === 1 ? '' : 's'} to review:
+            {allWarnings.length} warning{allWarnings.length === 1 ? '' : 's'} to review:
           </p>
           <ul className="mt-1 max-h-32 list-disc overflow-auto pl-5">
-            {warnings.map((w, i) => (
-              <li key={i}>{w.message}</li>
+            {allWarnings.map((msg, i) => (
+              <li key={i}>{msg}</li>
             ))}
           </ul>
         </div>

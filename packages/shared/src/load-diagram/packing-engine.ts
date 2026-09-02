@@ -26,6 +26,8 @@ import type {
 } from './types';
 import { OPEN_TRAILER_TYPES } from './types';
 import { suggestedCargoHeight } from './suggested-height';
+import { classCanCarry, type RulesConfig } from './rules-config';
+import { validate, type RulePlan, type ValidationResult } from './rules';
 
 // ─── Internal geometry helpers ───────────────────────────────────────────────
 
@@ -57,11 +59,17 @@ interface Box {
 /** Optional packing tuning / constraint inputs. */
 export interface PackingConstraints {
   /**
-   * Stackability matrix: `matrix[a][b] === false` means an item of class `b`
-   * may NOT be placed on top of an item of class `a`. Missing entries default
-   * to allowed.
+   * Legacy stackability matrix: `matrix[a][b] === false` means class `b` may NOT
+   * sit on class `a`. Missing entries default to allowed. Superseded by the
+   * fail-closed allow-list in `rulesConfig.stackCompatibility` when provided.
    */
   stackabilityMatrix?: Record<string, Record<string, boolean>>;
+  /**
+   * Rules configuration. When supplied, the solver enforces the same fail-closed
+   * stack-compatibility allow-list the validator uses (single source of
+   * legality), and the completed plan is validated with it.
+   */
+  rulesConfig?: RulesConfig;
 }
 
 const ALL_ORIENTATIONS: ItemOrientation[] = [
@@ -310,8 +318,14 @@ function placementSatisfiesConstraints(
     // Cannot place anything on a top-load-prohibited item.
     if (s.topLoadProhibited) return false;
 
-    // Stackability class matrix: does the support class allow this on top?
-    if (!classAllowsOnTop(s.stackabilityClass, item.stackabilityClass, constraints)) {
+    // Stack-class compatibility. When a rules config is present, use the SAME
+    // fail-closed allow-list the validator uses (single source of legality);
+    // otherwise fall back to the legacy permissive matrix.
+    if (constraints.rulesConfig) {
+      if (!classCanCarry(s.stackabilityClass, item.stackabilityClass, constraints.rulesConfig.stackCompatibility)) {
+        return false;
+      }
+    } else if (!classAllowsOnTop(s.stackabilityClass, item.stackabilityClass, constraints)) {
       return false;
     }
   }
@@ -600,6 +614,13 @@ export function computeLoadPlan(
 
   const warnings = generateWarnings(placed, trailer);
 
+  // Report unplaced items explicitly as infeasible — never hidden or resized.
+  const unplaced = overflow.map((item) => ({
+    item,
+    feasible: false as const,
+    reason: 'Did not fit within the vehicle envelope, weight, or stacking rules.',
+  }));
+
   return {
     placedItems: placed,
     overflowItems: overflow,
@@ -607,8 +628,32 @@ export function computeLoadPlan(
     totalWeight,
     axleWeights,
     warnings,
+    unplaced,
     computeTimeMs: Date.now() - start,
   };
+}
+
+/**
+ * Computes a load plan AND validates it with the shared rules engine, so the
+ * caller gets an authoritative {errors, warnings} against the same rule
+ * functions the solver used for candidate legality. This is the single-source
+ * entry point: a complete-but-illegal load surfaces as errors here rather than
+ * being silently returned as "done".
+ */
+export function computeAndValidate(
+  items: LoadItem[],
+  trailer: TrailerProfile,
+  rulesConfig: RulesConfig,
+  constraints: Omit<PackingConstraints, 'rulesConfig'> = {},
+): { result: PackingResult; validation: ValidationResult } {
+  const result = computeLoadPlan(items, trailer, { ...constraints, rulesConfig });
+  const rulePlan: RulePlan = {
+    trailer,
+    items,
+    placed: result.placedItems,
+  };
+  const validation = validate(rulePlan, rulesConfig);
+  return { result, validation };
 }
 
 // ─── Advisory warnings ───────────────────────────────────────────────────────

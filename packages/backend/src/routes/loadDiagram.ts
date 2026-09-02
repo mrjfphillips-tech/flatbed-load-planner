@@ -914,5 +914,12 @@ function toLoadPlan(
     status: plan.status as loadDiagram.LoadPlanStatus,
     // Derived from placement + trailer type (deterministic; not persisted).
     warnings: loadDiagram.generateWarnings(items, trailerProfile),
+    // Full rules-engine validation (errors + warnings) so the UI can highlight
+    // violations and block finalize/export while still rendering the load.
+    ruleValidation: loadDiagram.validate({
+      trailer: trailerProfile,
+      items: items.map((p) => ({ ...p })),
+      placed: items,
+    }),
   };
 }
